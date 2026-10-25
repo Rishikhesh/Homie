@@ -21,7 +21,9 @@ TENANT_RULES = """SEAT: private chat with tenant {tname}. Help them, collect rep
 Repairs: decide yourself whether it's a repair, the trade (plumbing, electrical, hvac, appliance, locksmith, pest, roofing, carpentry, painting, general, other — use 'other' for blinds/curtains/furniture) and urgency (normal/high/emergency).
 Ask for a photo ONLY when it helps (leaks, damage, broken parts, stains/mould). Don't ask for photos for power out, no hot water, wifi, noise — ask one sharp question instead (e.g. 'Whole house or just your room?'). At most 1-2 short questions, then create_ticket. If photos were attached, pass their ids. Two different problems = two tickets.
 After create_ticket, tell the tenant warmly what happens next using the tool result (e.g. who you've asked). For slot picks, fixed/not fixed, use the matching tools when the tenant says so in words.
-If the tenant answers a handyman question, relay it with message_handyman."""
+If the tenant answers a handyman question, relay it with message_handyman.
+Moving out: if the tenant says they're moving out, call suggest_move_out (the landlord starts it with one tap; never start it yourself).
+Move-out statement questions: use lookup kind=move_out, explain calmly from the move-in record and photos, no legal threats. If their point holds (e.g. it's in the move-in record), call suggest_drop_charge."""
 
 JOB_RULES = """SEAT: private job chat with handyman {hname} for one ticket. Brief them, relay questions to the tenant with message_tenant (rewrite in your own voice), confirm completion. The handyman uses the Accept / Mark fixed buttons for quotes, times and completion — point them there. Don't share the tenant's contact details or the address before the visit is booked."""
 
@@ -43,16 +45,18 @@ T_SELF = fn("start_self_fix", "Tenant wants to fix it themselves / with their ow
 T_CONF = fn("confirm_fixed", "Tenant says the repair is fixed (ok=true) or not (ok=false).", {"ticket_id": S, "ok": {"type": "boolean"}, "note": S}, ["ticket_id", "ok"])
 T_APPR = fn("request_approval", "Propose a money action to the landlord (rent_credit, charge, other). Creates an approval card. Never promise it.",
             {"kind": {"type": "string", "enum": ["rent_credit", "charge", "other"]}, "amount": {"type": "number"}, "reason": S, "recommendation": S, "ticket_id": S}, ["kind", "amount", "reason"])
-T_LOOK = fn("lookup", "Read the caller's own records.", {"kind": {"type": "string", "enum": ["rent", "lease", "tickets", "payments", "portfolio", "late", "repairs", "job"]}}, ["kind"])
+T_LOOK = fn("lookup", "Read the caller's own records.", {"kind": {"type": "string", "enum": ["rent", "lease", "tickets", "payments", "portfolio", "late", "repairs", "job", "move_out"]}}, ["kind"])
 T_LEASE = fn("search_lease", "Search lease clauses.", {"query": S}, ["query"])
 T_LAW = fn("state_law", "Read the state rules for the property's state.", {"topic": S}, ["topic"])
 T_HIST = fn("search_history", "Search older messages in this chat.", {"query": S}, ["query"])
 T_REM = fn("remember", "Save a short stable fact (pets, access, preferences).", {"fact": S}, ["fact"])
 T_FLAG = fn("flag_landlord", "Put an exception card in the landlord's Needs you list.", {"reason": S, "ticket_id": S}, ["reason"])
 T_TIMES = fn("propose_times_to_tenant", "Show the handyman's times to the tenant (ISO datetimes).", {"slots": {"type": "array", "items": S}}, ["slots"])
+T_MOVE = fn("suggest_move_out", "Tenant says they are moving out: put a one-tap 'Start move-out' card in the landlord's Needs you.", {"move_out_date": {"type": "string", "description": "YYYY-MM-DD if known"}}, [])
+T_DROP = fn("suggest_drop_charge", "Tenant's dispute of a move-out charge holds: ask the landlord with a one-tap 'Drop this charge' card.", {"item_id": S, "reason": S}, ["item_id", "reason"])
 T_POL = fn("add_policy", "Save a landlord standing instruction.", {"policy": S}, ["policy"])
 
-TOOLS = {"tenant": [T_CREATE, T_UPDATE, T_MSG_H, T_BOOK, T_SELF, T_CONF, T_APPR, T_LOOK, T_LEASE, T_LAW, T_HIST, T_REM, T_FLAG],
+TOOLS = {"tenant": [T_CREATE, T_UPDATE, T_MSG_H, T_BOOK, T_SELF, T_CONF, T_APPR, T_LOOK, T_LEASE, T_LAW, T_HIST, T_REM, T_FLAG, T_MOVE, T_DROP],
          "job": [T_MSG_T, T_UPDATE, T_TIMES, T_LOOK, T_REM, T_FLAG, T_HIST],
          "landlord": [T_LOOK, T_LEASE, T_LAW, T_HIST, T_POL, T_APPR, T_FLAG]}
 
@@ -78,11 +82,13 @@ async def reword(text, audience, about=""):
     return strip_contacts(out or clean)
 
 
-async def triage(text, seat="tenant"):
+async def triage(text, seat="tenant", last_agent=""):
     who = {"tenant": "a tenant", "landlord": "a landlord about their rental portfolio", "job": "a handyman about a repair job"}[seat]
+    msg = (f"Assistant's previous message: {last_agent[:400]}\n\nNew message: {text}") if last_agent else text
     out = await quick('Classify a message sent by ' + who + ' to a rental-property assistant. Reply ONLY JSON {"in_scope": true|false}. '
                       'in_scope=true for ANYTHING that could relate to renting: the home, rent, who paid or is late, money, expenses, repairs, tenants, handymen, leases, rules, utilities, moving, taxes on the rental, law, greetings, thanks or short follow-ups. '
-                      'Only false when it is clearly unrelated (recipes, sports, trivia, coding, homework). When unsure, true.', text)
+                      'Answers to a question the assistant just asked (pets, access, times, yes/no) are ALWAYS in scope. '
+                      'Only false when it is clearly unrelated (recipes, sports, trivia, coding, homework). When unsure, true.', msg)
     m = re.search(r"\{.*\}", out or "", re.S)
     try:
         return json.loads(m.group(0)) if m else {"in_scope": True}
@@ -210,6 +216,24 @@ async def run_tool(name, a, user, thread, cards):
         await flows.create_approval(thread["landlord_id"], "other", 0, ticket_id=a.get("ticket_id"), title="Rentwise needs you", reason=a["reason"], recommendation="✦ I'll follow your lead on this one.")
         await activity(thread["landlord_id"], f"Flagged for you: {a['reason'][:80]}", a.get("ticket_id"))
         return {"ok": True}
+    if name == "suggest_move_out" and kind == "tenant":
+        unit, _ = await tenant_ctx(user["id"])
+        if await db.approvals.find_one({"kind": "start_move_out", "tenant_id": user["id"], "status": "pending"}):
+            return {"ok": True, "note": "Already suggested to the landlord."}
+        await flows.create_approval(thread["landlord_id"], "start_move_out", 0, tenant_id=user["id"], title=f"Start move-out for {first(user['name'])}?",
+                                    reason=f"{first(user['name'])} says they're moving out of {unit['label']}.", recommendation="✦ One tap starts the move-out check and the refund countdown.",
+                                    extra={"unit_id": unit["id"], "move_out_date": a.get("move_out_date")})
+        return {"ok": True, "note": "Suggested to the landlord. Nothing starts until they tap it."}
+    if name == "suggest_drop_charge" and kind == "tenant":
+        import inspections
+        info = await inspections.statement_for_agent(user["id"])
+        it = next((c for c in info.get("charges", []) if c["item_id"] == a["item_id"]), None)
+        if not it:
+            return {"error": "That charge isn't on the statement"}
+        await flows.create_approval(thread["landlord_id"], "drop_charge", it["charge"], tenant_id=user["id"], title=f"Drop this charge ({money(it['charge'])})",
+                                    reason=f"{first(user['name'])} questioned '{it['title']}': {a['reason'][:200]}", recommendation="✦ Their point checks out against the move-in record.",
+                                    extra={"statement_id": info["statement_id"], "item_id": it["item_id"]})
+        return {"ok": True, "note": "Sent to the landlord. Don't promise the outcome."}
     if name == "request_approval":
         tgt = user["id"] if kind == "tenant" else thread.get("tenant_id")
         await flows.create_approval(thread["landlord_id"], a["kind"], a["amount"], ticket_id=a.get("ticket_id"), tenant_id=tgt,
@@ -255,6 +279,9 @@ async def lookup(kind, user, thread):
         unit, prop = await tenant_ctx(user["id"])
         if kind in ("rent", "payments"):
             return {"ledger": (await unit_ledger(unit))[-4:] if unit else []}
+        if kind == "move_out":
+            import inspections
+            return await inspections.statement_for_agent(user["id"])
         if kind == "lease":
             le = await db.leases.find_one({"tenant_id": user["id"], "status": "signed"}, NF)
             return {"terms": le["terms"] if le else "No signed lease yet"}
@@ -280,7 +307,8 @@ async def lookup(kind, user, thread):
 async def run_turn(thread_id, user, text, attachments):
     thread = await db.threads.find_one({"id": thread_id}, NF)
     try:
-        tri = await triage(text, thread["kind"]) if text and not attachments else {"in_scope": True}
+        last = await db.messages.find_one({"thread_id": thread_id, "role": "assistant"}, NF, sort=[("created_at", -1)])
+        tri = await triage(text, thread["kind"], (last or {}).get("text", "")) if text and not attachments else {"in_scope": True}
         if not tri.get("in_scope", True):
             scope = "your properties, tenants, rent, repairs and money" if thread["kind"] == "landlord" else "this job" if thread["kind"] == "job" else "your home, rent, lease and repairs"
             await post(thread_id, f"I can only help with {scope} — anything there I can do for you?")
@@ -304,6 +332,7 @@ async def run_turn(thread_id, user, text, attachments):
                 if not resp.tool_calls:
                     break
                 for tc in resp.tool_calls:
+                    await db.tool_calls.insert_one({"thread_id": thread_id, "name": tc.name, "args": tc.arguments or {}, "at": iso()})
                     try:
                         out = await run_tool(tc.name, tc.arguments or {}, user, thread, cards)
                     except Exception as e:  # noqa: BLE001

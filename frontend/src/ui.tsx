@@ -358,8 +358,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function Row({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  return <View style={[{ flexDirection: "row", alignItems: "center", gap: spacing.md }, style]}>{children}</View>;
+export function Row({ children, style, testID }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; testID?: string }) {
+  return <View testID={testID} style={[{ flexDirection: "row", alignItems: "center", gap: spacing.md }, style]}>{children}</View>;
 }
 export function Divider() {
   const { colors } = useTheme();

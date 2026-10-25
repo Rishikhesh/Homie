@@ -1,4 +1,4 @@
-import os, re, uuid, logging, contextvars, asyncio, requests
+import os, re, uuid, logging, contextvars, asyncio, requests, secrets
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -90,10 +90,34 @@ def first(name):
 # ---------- auth ----------
 async def get_user(request: Request) -> dict:
     h = request.headers.get("Authorization", "")
-    token = h[7:] if h.startswith("Bearer ") else request.query_params.get("token")
+    token = h[7:] if h.startswith("Bearer ") else None
     if not token:
         raise HTTPException(401, "Please sign in")
+    return await _session_user(await db.sessions.find_one({"token": token}, NF), request)
+
+
+async def get_media_user(request: Request) -> dict:
+    """For GET links opened outside the app (images, PDFs). Accepts a read-only media token in the URL,
+    never the login token, so a leaked link can't be used to act as the user."""
+    h = request.headers.get("Authorization", "")
+    if h.startswith("Bearer "):
+        return await get_user(request)
+    mt = request.query_params.get("media")
+    if not mt:
+        raise HTTPException(401, "Please sign in")
+    return await _session_user(await db.sessions.find_one({"media_token": mt}, NF), request)
+
+
+async def media_token_for(token: str) -> str:
     s = await db.sessions.find_one({"token": token}, NF)
+    if s and s.get("media_token"):
+        return s["media_token"]
+    mt = secrets.token_urlsafe(24)
+    await db.sessions.update_one({"token": token}, {"$set": {"media_token": mt}})
+    return mt
+
+
+async def _session_user(s, request: Request) -> dict:
     if not s:
         raise HTTPException(401, "Session expired. Please sign in again")
     exp = s["expires_at"]

@@ -1,0 +1,116 @@
+[
+  {
+    "pair": "nail_holes",
+    "expected": {
+      "category": "normal_wear",
+      "charge": 0
+    },
+    "jev": {
+      "same_view": 0.78,
+      "new_damage": 0.09,
+      "kind": "none",
+      "kind_confidence": 0.92,
+      "severity": 1
+    },
+    "to_sonnet": false,
+    "category": "none",
+    "charge": 0,
+    "box": false,
+    "explanation": "",
+    "pass": false
+  },
+  {
+    "pair": "burn_on_counter",
+    "expected": {
+      "category": "damage",
+      "charge": ">0",
+      "box": true
+    },
+    "jev": {
+      "same_view": 0.82,
+      "new_damage": 0.08,
+      "kind": "none",
+      "kind_confidence": 0.97,
+      "severity": 1
+    },
+    "to_sonnet": true,
+    "category": "damage",
+    "charge": 150,
+    "box": true,
+    "explanation": "A new dark oval mark appears on the floor in the move-out photo. It isn't in the move-in photo or notes, and it looks like",
+    "pass": true
+  },
+  {
+    "pair": "stain_at_move_in",
+    "expected": {
+      "category": "pre_existing",
+      "charge": 0
+    },
+    "jev": {
+      "same_view": 0.82,
+      "new_damage": 0.14,
+      "kind": "pre_existing",
+      "kind_confidence": 0.46,
+      "severity": 3
+    },
+    "to_sonnet": true,
+    "category": "pre_existing",
+    "charge": 0,
+    "box": false,
+    "explanation": "The brown water stain near the ceiling is in the move-in photo and notes. It looks the same at move-out, so no charge.",
+    "pass": true
+  },
+  {
+    "pair": "reported_crack",
+    "expected": {
+      "category": "reported_repair",
+      "charge": 0
+    },
+    "jev": {
+      "same_view": 0.74,
+      "new_damage": 0.21,
+      "kind": "reported_repair",
+      "kind_confidence": 0.4,
+      "severity": 3
+    },
+    "to_sonnet": true,
+    "category": "reported_repair",
+    "charge": 0,
+    "box": true,
+    "explanation": "A crack crosses the counter that wasn't in the move-in photo. The tenant reported a counter crack on 2026-04-02, so it isn't charged.",
+    "pass": true
+  },
+  {
+    "pair": "different_angle",
+    "expected": {
+      "category": "check",
+      "charge": 0
+    },
+    "jev": {},
+    "to_sonnet": true,
+    "category": "check",
+    "charge": 0,
+    "box": false,
+    "explanation": "The move-in photo shows a beige wall, a window and a pale floor. The move-out photo shows a green wall and brown slats. These look",
+    "pass": true
+  },
+  {
+    "pair": "no_change",
+    "expected": {
+      "category": "none"
+    },
+    "jev": {
+      "same_view": 0.86,
+      "new_damage": 0.05,
+      "kind": "none",
+      "kind_confidence": 1.0,
+      "severity": 1
+    },
+    "to_sonnet": false,
+    "category": "none",
+    "charge": 0,
+    "box": false,
+    "explanation": "",
+    "pass": true
+  }
+]

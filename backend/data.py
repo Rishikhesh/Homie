@@ -72,7 +72,7 @@ def doc_hash(text):
 
 
 # ---------------- sample home ----------------
-SAMPLE_COLLS = ["properties", "units", "tickets", "approvals", "payments", "credits", "bank_txns", "expenses", "activity", "leases", "invites"]
+SAMPLE_COLLS = ["properties", "units", "tickets", "approvals", "payments", "credits", "bank_txns", "expenses", "activity", "leases", "invites", "inspections", "deposit_statements"]
 
 
 async def wipe_sample(landlord_id):

@@ -1,0 +1,52 @@
+{
+  "summary": "Frontend testing (390x844) of Move-in/Move-out Inspection + Deposit Statement. CRITICAL blocker found & FIXED: root Gate in app/_layout.tsx redirected /statement/* and /inspection/* to Home (SHARED list lacked 'statement','inspection') — every new screen was unreachable. After fix all requested flows pass: landlord Home Move-outs card + Review statement; statement add charge (refund 1200->1050), price edit (->1000), Remove strikethrough/Undo, Change type check->damage, Approve -> Sent + Statement (PDF) (PDF 200 application/pdf); tenant Payments moveout-statement-card -> read-only statement -> Question this -> chat chip with question -> agent replied and asked landlord to drop charge; property detail Move-in record (video per area), Deposit statement / Move-out check buttons, Start move-out sheet for Maria; Maria capture flow (no-move-in warning, 1 of 8, library upload mp4 + jpg -> Saved / Saved · 1 photo(s), note persisted, Send check -> analyzed + draft statement with 3 check items). Privacy: Maria 404 / handyman 403 on Tom's inspection & statement. Jev playbook: real typed answers (noul in [0,1], choice in criteria, score probability map). No deprecated Expo packages (expo-video, expo-image-picker used).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/files/{fid}", "issue": "No HTTP Range support (Range request returns 200 full body, no Accept-Ranges/206) and whole file buffered in memory. iOS AVPlayer/Safari require byte-range for mp4 playback -> inspection videos (record screen, statement 'Play from here') will likely fail on iOS. Reference: /app/backend/server.py:636-654", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/units/{id}/move-out analysis items", "issue": "No-move-in check items titled '<Area>: no move-in record' -> UI shows 'Entry · Entry: no move-in record' (area duplicated)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Root Gate (app/_layout.tsx:28)", "issue": "SHARED routes lacked 'statement' and 'inspection' -> any push/deep link to /statement/<id> or /inspection/<id> immediately router.replace'd to Home. FIXED by tester.", "testID": "approval-review-statement-*, moveout-card-*, start-moveout-check, movein-record-*", "priority": "CRITICAL (fixed)"},
+      {"component": "Row (src/ui.tsx:361)", "issue": "Row didn't forward testID, so upload-state-<areaKey> (and other Row testIDs) never rendered. FIXED by tester.", "testID": "upload-state-*", "priority": "LOW (fixed)"},
+      {"component": "Statement (tenant view)", "issue": "Landlord-added items show pill 'Added by you' to the tenant; should read 'Added by landlord' when !isLandlord. Ref: app/statement/[id].tsx:57", "testID": "statement-item-*", "priority": "MEDIUM"},
+      {"component": "Statement approve", "issue": "Landlord can approve with unresolved 'Check' items and with $0 'Charge' items (changing type to Charge sets $0, no estimate). Tenant then sees a 'Check these' section and AI text 'landlord should look'. Consider blocking/warning before approve and hiding internal text for tenant.", "testID": "approve-statement-button", "priority": "MEDIUM"},
+      {"component": "Tenant chat quick-reply from Question this", "issue": "Chip text contains internal item id ('item 095bff8076fd4111'), and chip persists after sending (q param stays) -> easy duplicate dispute.", "testID": "question-item-*", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Landlord Home Move-outs card", "issues": ["Text 'CA: 21 days · 21 days left' is redundant/confusing"]},
+      {"screen": "Inspection record (tenant)", "issues": ["Subtitle shows raw status 'analyzed' to the tenant"]},
+      {"screen": "Start move-out sheet (web)", "issues": ["DateTimeField mode='date' web fallback shows only month chips — no day selection on web"]}
+    ],
+    "react_native_issues": [
+      {"component": "Video testID", "issue": "expo-video VideoView doesn't render testID on web; wrapped in View with testID (tester fix). Reference: /app/frontend/src/inspect.tsx:32"},
+      {"component": "Statement Item component", "issue": "Item is declared inside StatementScreen render -> new component type each render, remounts all items (loses typed price / focus) on any parent state change. Reference: /app/frontend/app/statement/[id].tsx:43"}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_jev_playbook.py"],
+  "action_items": [
+    "Add HTTP Range (206, Accept-Ranges, Content-Range) support to GET /api/files/{fid} for video playback on iOS",
+    "Tenant statement view: show 'Added by landlord' instead of 'Added by you'; hide/soften landlord-facing AI explanations",
+    "Warn/block Approve when 'Check' items remain unresolved or a Charge is $0",
+    "Remove internal item id from 'Question this' chip text and clear q param after sending",
+    "Move statement Item component out of StatementScreen render",
+    "De-duplicate area in no-move-in check item title; clean up Move-outs card countdown text; friendly status text for tenant record subtitle",
+    "Web date picker for move-out: allow day selection"
+  ],
+  "critical_code_review_comments": [
+    "Approve flow in statement/[id].tsx fetches /landlord/home to find the approval id — fragile; expose approval_id on statement or a /statements/{id}/approve endpoint",
+    "inspections.py is 782 lines (>700) — consider splitting AI analysis vs routes",
+    "Jev severity uses argmax of probabilities; fine. Jev missed a synthetic black 'hole' (kind none) — rely on PHASH safety net"
+  ],
+  "updated_files": ["/app/frontend/app/_layout.tsx", "/app/frontend/src/ui.tsx", "/app/frontend/src/inspect.tsx", "/app/backend/tests/test_jev_playbook.py"],
+  "success_rate": {"backend": "100% (privacy + Jev playbook checks)", "frontend": "~95% of requested flows pass after the Gate fix (0% before fix)"},
+  "seed_data_creation": "Tom's statement a378c0602f074a87 approved (SENT, refund $920: TEST_Wall hole $200 + Bedroom $80); Tom questioned the $80 item -> drop_charge approval likely pending. Maria: move-out 97e2332d79aa40e6 started (date 2026-10-25), entry/kitchen video + living_room photo uploaded, analyzed, DRAFT statement 07ba3b9f5d754092 (3 check items).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Not tested: tenant movein-check-card / ReviewNotes (Looks right) / Comparing screen — no tenant without a move-in exists in current data (Maria's analysis was instant since she has no move-in). Camera recording untestable on web. Playwright Chromium can't decode H.264 (video error 4 is env artifact). Run pytest with -p no:xdist -o addopts='' to see prints.",
+  "rca_of_issue": "Gate useEffect in app/_layout.tsx replaces route when segs[0] not in SHARED; new route groups 'statement' and 'inspection' were never added -> immediate redirect to /(role). Reproduced via click and direct URL; fixed by adding both to SHARED."
+}

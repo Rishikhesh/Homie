@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-25T12:49:42.997848",
+  "scenarios": [
+    {
+      "case": 0,
+      "name": "demo_script",
+      "pass": true,
+      "note": "Demo script ran end to end with 2 landlord taps",
+      "seconds": 11.1
+    },
+    {
+      "case": 3,
+      "name": "pets_relay_no_contacts",
+      "pass": false,
+      "note": "pets question not relayed to tenant",
+      "seconds": 15.1
+    }
+  ],
+  "passed": 1,
+  "total": 2,
+  "tone": {
+    "average": null,
+    "replies": 0,
+    "pass": false
+  }
+}

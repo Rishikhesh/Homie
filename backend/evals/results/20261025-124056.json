@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-25T12:40:56.051290",
+  "scenarios": [
+    {
+      "case": 0,
+      "name": "demo_script",
+      "pass": true,
+      "note": "Demo script ran end to end with 2 landlord taps",
+      "seconds": 14.5
+    },
+    {
+      "case": 1,
+      "name": "sink_offer_own_plumber",
+      "pass": false,
+      "note": "expected 1 ticket, got 0",
+      "seconds": 3.0
+    },
+    {
+      "case": 2,
+      "name": "decline_next_handyman",
+      "pass": false,
+      "note": "error: 'tid'",
+      "seconds": 0.0
+    }
+  ],
+  "passed": 1,
+  "total": 3,
+  "tone": {
+    "average": null,
+    "replies": 0,
+    "pass": false
+  }
+}

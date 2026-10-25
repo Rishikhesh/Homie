@@ -1,0 +1,40 @@
+{
+  "at": "2026-10-25T12:50:40.403049",
+  "scenarios": [
+    {
+      "case": 3,
+      "name": "pets_relay_no_contacts",
+      "pass": false,
+      "note": "tenant reply not relayed to handyman",
+      "seconds": 18.1
+    },
+    {
+      "case": 4,
+      "name": "quote_creates_approval_only",
+      "pass": true,
+      "note": "$180 approval, no money moved",
+      "seconds": 0.0
+    },
+    {
+      "case": 5,
+      "name": "slot_and_approval_book",
+      "pass": true,
+      "note": "Booked for Tue 10 am; both told",
+      "seconds": 0.0
+    },
+    {
+      "case": 6,
+      "name": "fixed_confirm_flow",
+      "pass": true,
+      "note": "\ud83d\udc4e reopened, \ud83d\udc4d created Pay approval",
+      "seconds": 0.3
+    }
+  ],
+  "passed": 3,
+  "total": 4,
+  "tone": {
+    "average": null,
+    "replies": 0,
+    "pass": false
+  }
+}

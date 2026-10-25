@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-25T12:57:03.113755",
+  "scenarios": [
+    {
+      "case": 16,
+      "name": "self_fix_offer",
+      "pass": true,
+      "note": "Self-fix offered, limit pending",
+      "seconds": 18.1
+    },
+    {
+      "case": 17,
+      "name": "receipt_over_limit",
+      "pass": true,
+      "note": "$120 credit + $120 expense",
+      "seconds": 2.1
+    },
+    {
+      "case": 18,
+      "name": "receipt_reuse",
+      "pass": true,
+      "note": "Second upload rejected (409)",
+      "seconds": 1.6
+    }
+  ],
+  "passed": 3,
+  "total": 3,
+  "tone": {
+    "average": null,
+    "replies": 0,
+    "pass": false
+  }
+}

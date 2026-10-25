@@ -5,6 +5,7 @@ import { api, money, propertyPhoto } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { BigButton, Card, Divider, ErrorState, Field, LargeHeader, PhotoCard, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
 import { spacing, useTheme } from "@/src/theme";
+import { DateTimeField } from "@/src/inputs";
 
 export default function PropertyDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,6 +17,7 @@ export default function PropertyDetail() {
   const [email, setEmail] = useState("");
   const [rules, setRules] = useState<string | null>(null);
   const [room, setRoom] = useState<any>(null);
+  const [moveOut, setMoveOut] = useState<any>(null);
   if (error && !p) return <Screen><ErrorState message={error} onRetry={reload} /></Screen>;
   if (!p) return <Screen><Skeleton /></Screen>;
   const sr = p.state_rules;
@@ -45,6 +47,9 @@ export default function PropertyDetail() {
               {(u.tenant || u.invite) && (!u.lease || u.lease.status !== "signed") ? <TextButton testID={`prepare-lease-${u.id}`} icon="document-text-outline" label={u.lease ? "Open lease" : "Prepare lease"} onPress={() => router.push(u.lease ? `/lease/${u.lease.id}` : `/lease/new?unit=${u.id}`)} /> : null}
               {(u.tenant || u.invite) && (!u.lease || u.lease.status !== "signed") ? <TextButton testID={`upload-lease-${u.id}`} icon="cloud-upload-outline" label="Upload signed lease" onPress={() => router.push(`/lease/upload?unit=${u.id}`)} /> : null}
               {u.lease?.status === "signed" ? <TextButton testID={`view-lease-${u.id}`} icon="document-text-outline" label="Lease" onPress={() => router.push(`/lease/${u.lease.id}`)} /> : null}
+              {u.move_in ? <TextButton testID={`movein-record-${u.id}`} icon="videocam-outline" label={u.move_in.status === "confirmed" ? "Move-in record" : "Move-in check (in progress)"} onPress={() => router.push(`/inspection/${u.move_in.id}`)} /> : null}
+              {u.tenant && !u.move_out ? <TextButton testID={`start-moveout-${u.id}`} icon="exit-outline" label="Start move-out" onPress={() => setMoveOut({ unit: u, date: new Date() })} /> : null}
+              {u.move_out ? <TextButton testID={`moveout-open-${u.id}`} icon="exit-outline" label={u.move_out.statement_id ? "Deposit statement" : "Move-out check"} onPress={() => router.push(u.move_out.statement_id ? `/statement/${u.move_out.statement_id}` : `/inspection/${u.move_out.id}`)} /> : null}
             </Row>
           </Card>
         ))}
@@ -68,6 +73,19 @@ export default function PropertyDetail() {
         </Section>
       ) : null}
 
+      <Sheet visible={!!moveOut} onClose={() => setMoveOut(null)} title={`Start move-out · ${moveOut?.unit?.label || ""}`} testID="start-moveout-sheet">
+        {moveOut ? (
+          <View style={{ gap: spacing.md }}>
+            <Txt v="body">{moveOut.unit.tenant?.name} gets the move-out walkthrough. The refund countdown starts from this date.</Txt>
+            <DateTimeField mode="date" testID="moveout-date" label="Move-out date" value={moveOut.date} onChange={(d) => setMoveOut({ ...moveOut, date: d })} />
+            <BigButton testID="moveout-confirm" label="Start move-out" onPress={async () => {
+              const d = moveOut.date as Date;
+              const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+              try { await api(`/units/${moveOut.unit.id}/move-out`, { body: { move_out_date: ymd } }); toast("Move-out started"); setMoveOut(null); reload(); } catch (e: any) { toast(e.message, "error"); }
+            }} />
+          </View>
+        ) : null}
+      </Sheet>
       <Sheet visible={!!inv} onClose={() => setInv(null)} title={`Invite a tenant to ${inv?.label}`} testID="invite-tenant-sheet">
         <Field testID="invite-tenant-email" label="Tenant's Google email" placeholder="name@gmail.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see the invite when they sign in to Rentwise as a tenant. No email is sent." />
         <BigButton testID="invite-tenant-send" style={{ marginTop: spacing.lg }} label="Create invite" onPress={async () => { try { await api(`/units/${inv.id}/invite`, { body: { email, replace: !!inv.replace } }); toast("Invite created"); setInv(null); setEmail(""); reload(); } catch (e: any) { toast(e.message, "error"); } }} />

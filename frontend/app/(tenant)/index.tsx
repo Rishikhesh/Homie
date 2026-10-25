@@ -13,6 +13,33 @@ import { spacing, useTheme } from "@/src/theme";
 const INSURERS = [{ n: "Lemonade", u: "https://www.lemonade.com/renters" }, { n: "State Farm", u: "https://www.statefarm.com/insurance/home-and-property/renters" }, { n: "Allstate", u: "https://www.allstate.com/renters-insurance" }];
 const UTIL_LINKS: any = { "PG&E": "https://www.pge.com", Xfinity: "https://www.xfinity.com" };
 
+function InspectionCard() {
+  const router = useRouter();
+  const toast = useToast();
+  const { data: x, reload } = useLive<any>(() => api("/inspections/mine"), 5000);
+  if (!x) return null;
+  const mo = x.move_out, mi = x.move_in;
+  if (mo && mo.status === "in_progress") {
+    return (
+      <Card agent testID="moveout-check-card" style={{ marginBottom: spacing.xl, gap: spacing.sm }}>
+        <Txt v="label" style={{ fontSize: 17 }}>Move-out check</Txt>
+        <Txt v="body">Moving out {mo.move_out_date}. Walk through each room once more so your deposit comes back fast.</Txt>
+        <BigButton testID="start-moveout-check" icon="videocam" label="Do your move-out check" style={{ minHeight: 56 }} onPress={() => router.push(`/inspection/${mo.id}`)} />
+      </Card>
+    );
+  }
+  if (mo) return <Card testID="moveout-status-card" style={{ marginBottom: spacing.xl }} onPress={() => router.push(`/inspection/${mo.id}`)}><Txt v="label">Move-out check sent</Txt><Txt v="small">{x.statement ? "Your statement is in Payments" : "Your landlord is reviewing it"}</Txt></Card>;
+  if (mi?.locked) return null;
+  return (
+    <Card agent testID="movein-check-card" style={{ marginBottom: spacing.xl, gap: spacing.sm }}>
+      <Txt v="label" style={{ fontSize: 17 }}>Move-in check</Txt>
+      <Txt v="body">{mi ? "Finish your move-in check — it records how the home looked, so you're never charged for what was already there." : "Do your move-in check now. A short video of each room protects your deposit."}</Txt>
+      <BigButton testID="start-movein-check" icon="videocam" label={mi ? "Continue move-in check" : "Do your move-in check now"} style={{ minHeight: 56 }}
+        onPress={async () => { try { const i = mi || await api("/inspections/move-in", { method: "POST" }); reload(); router.push(`/inspection/${i.id}`); } catch (e: any) { toast(e.message, "error"); } }} />
+    </Card>
+  );
+}
+
 export default function TenantHome() {
   const { me } = useAuth();
   const router = useRouter();
@@ -74,6 +101,7 @@ export default function TenantHome() {
             </Section>
           ) : null}
 
+          <InspectionCard />
           <Section title="Your repairs" testID="tenant-open-tickets">
             {d.tickets.length ? d.tickets.map((t: any, i: number) => <TicketRow key={t.id} t={t} role="tenant" index={i} />) : (
               <EmptyState testID="tenant-tickets-empty" icon="construct-outline" title="Nothing broken" body="If something needs fixing, tell Rentwise in Chat — it handles the rest." action="Report a problem" onAction={() => router.push("/(tenant)/chat")} />

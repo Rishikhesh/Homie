@@ -25,7 +25,7 @@ function targetFor(me: any): string {
   if (u.role === "handyman" && !me.handyman) return "welcome";
   return `(${u.role})`;
 }
-const SHARED = ["ticket", "thread", "property", "handyman", "settings", "lease", "report", "rights", "accept"];
+const SHARED = ["ticket", "thread", "property", "handyman", "settings", "lease", "report", "rights", "accept", "statement", "inspection"];
 
 function Gate() {
   const { me, loading, actAs } = useAuth();

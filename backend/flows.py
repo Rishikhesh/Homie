@@ -367,6 +367,15 @@ async def apply_approval(a, amt, option):
         await timeline(t["id"], f"Owner credited {money(credit)} off {month_name(p)} rent", "landlord")
         await activity(a["landlord_id"], f"Credited {money(credit)} off next rent — ticket closed", t["id"], "landlord")
         await tell_tenant(t, f"{money(credit)} will come off your {month_name(p)} rent. Thanks for sorting it!")
+    elif k in ("deposit_statement", "drop_charge", "start_move_out"):
+        import inspections
+        if k == "deposit_statement":
+            await inspections.approve_statement(a)
+        elif k == "drop_charge":
+            await inspections.drop_charge(a)
+        else:
+            unit = await db.units.find_one({"id": a["unit_id"], "landlord_id": a["landlord_id"]}, NF)
+            await inspections.create_move_out(unit, a["landlord_id"], a.get("move_out_date"))
     elif k in ("rent_credit", "charge"):
         unit = await db.units.find_one({"tenant_id": a["tenant_id"]}, NF)
         signed = amt if k == "rent_credit" else -amt

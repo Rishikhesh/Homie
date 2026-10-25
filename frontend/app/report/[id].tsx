@@ -29,7 +29,7 @@ export default function Report() {
         <Divider />
         <Row style={{ justifyContent: "space-between" }}><Txt v="label">Total expenses</Txt><Txt v="label">{money(r.total_expenses)}</Txt></Row>
         <Row style={{ justifyContent: "space-between" }}><Txt v="label">Net</Txt><Txt v="label" testID="report-net">{money(r.net)}</Txt></Row>
-        <Txt v="small" style={{ marginTop: spacing.sm }}>Security deposits held ({money(r.deposits_excluded)}) are not income and are excluded.</Txt>
+        <Txt v="small" style={{ marginTop: spacing.sm }}>Security deposits received this year ({money(r.deposits_excluded)}) are not income and are excluded.</Txt>
       </Card>
       <Section title="Repairs & expenses">
         <Card>{r.expenses.length ? r.expenses.map((e: any, i: number) => <View key={e.id}>{i ? <Divider /> : null}<Row style={{ justifyContent: "space-between" }}><Txt v="body" style={{ flex: 1 }}>{e.date.slice(0, 10)} · {e.description}</Txt><Txt v="label">{money(e.amount)}</Txt></Row></View>) : <Txt v="small">Nothing yet.</Txt>}</Card>

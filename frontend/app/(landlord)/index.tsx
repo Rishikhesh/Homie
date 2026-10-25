@@ -56,6 +56,7 @@ export default function LandlordHome() {
   const { colors } = useTheme();
   const { data, error, loading, reload } = useLive<any>(() => api("/landlord/home"), 3000);
   const s = data?.stats;
+  const mo = useLive<any[]>(() => api("/move-outs"), 10000);
   return (
     <Screen tab testID="landlord-home-screen" refresh={<RefreshControl refreshing={false} onRefresh={reload} />}>
       <LargeHeader title={`Hi ${me?.user?.name?.split(" ")[0] || ""}`} subtitle="Here's what needs you today"
@@ -76,6 +77,20 @@ export default function LandlordHome() {
               <EmptyState testID="needs-you-empty" icon="checkmark-done-circle-outline" title="Nothing needs you" body="When Rentwise needs you to approve money or decide something, it appears here." />
             ) : null}
           </Section>
+          {mo.data?.length ? (
+            <Section title="Move-outs" testID="move-outs-section">
+              {mo.data.map((m: any) => (
+                <Card key={m.inspection_id} testID={`moveout-card-${m.inspection_id}`} onPress={() => router.push(m.statement_id ? `/statement/${m.statement_id}` : `/inspection/${m.inspection_id}`)}
+                  style={{ borderColor: m.days_left < 0 ? colors.error : m.days_left <= 5 ? colors.warning : colors.divider, borderWidth: 1.5 }}>
+                  <Txt v="label" style={{ fontSize: 17 }}>{m.tenant_name.split(" ")[0]} · {m.unit_label} · refund due by {m.due_by}</Txt>
+                    <Txt v="body" color={m.days_left < 0 ? colors.error : m.days_left <= 5 ? colors.onWarningSoft : undefined}>
+                    {m.state} gives {m.return_days} days · {m.days_left < 0 ? `${-m.days_left} days overdue` : `${m.days_left} left`}
+                  </Txt>
+                  <Txt v="small">{m.statement_id ? "Statement ready to review ›" : m.status === "analyzing" ? "Rentwise is comparing…" : "Waiting for the move-out check"}</Txt>
+                </Card>
+              ))}
+            </Section>
+          ) : null}
           <Section title="Stats" testID="stats-section">
             <StatsBlock s={s} month={data.month} />
           </Section>

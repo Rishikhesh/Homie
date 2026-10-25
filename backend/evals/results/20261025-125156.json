@@ -1,0 +1,26 @@
+{
+  "at": "2026-10-25T12:51:56.750131",
+  "scenarios": [
+    {
+      "case": 3,
+      "name": "pets_relay_no_contacts",
+      "pass": true,
+      "note": "Relayed both ways without phone/email",
+      "seconds": 27.1
+    },
+    {
+      "case": 14,
+      "name": "off_topic",
+      "pass": true,
+      "note": "One-line refusal",
+      "seconds": 1.5
+    }
+  ],
+  "passed": 2,
+  "total": 2,
+  "tone": {
+    "average": null,
+    "replies": 0,
+    "pass": false
+  }
+}

@@ -1,5 +1,6 @@
 import React from "react";
 import { RefreshControl, View } from "react-native";
+import { useRouter } from "expo-router";
 import { api, money } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { openPdf } from "@/src/cards";
@@ -8,6 +9,19 @@ import { PayButton } from "@/src/pay";
 import { spacing, useTheme } from "@/src/theme";
 
 const TONE: any = { paid: "success", due: "warning", overdue: "error", upcoming: "neutral" };
+
+function StatementCard() {
+  const router = useRouter();
+  const { data: x } = useLive<any>(() => api("/inspections/mine"), 10000);
+  if (!x?.statement) return null;
+  return (
+    <Card agent testID="moveout-statement-card" style={{ marginBottom: spacing.xl }} onPress={() => router.push(`/statement/${x.statement.id}`)}>
+      <Txt v="label">Move-out statement</Txt>
+      <Txt v="money">{money(x.statement.refund)}<Txt v="body"> refund</Txt></Txt>
+      <Txt v="small">{x.statement.total_deductions ? `${money(x.statement.total_deductions)} kept for damage · ` : ""}See the photos and details ›</Txt>
+    </Card>
+  );
+}
 
 export default function Payments() {
   const { colors } = useTheme();
@@ -21,6 +35,7 @@ export default function Payments() {
           {d.next_due || d.deposit_due ? (
             <View style={{ marginBottom: spacing.xl }}><PayButton due={d.next_due} deposit={d.deposit_due} onPaid={reload} landlord={d.landlord_name.split(" ")[0]} /></View>
           ) : <Card style={{ marginBottom: spacing.xl }} testID="all-paid-card"><Txt v="label">You&apos;re all paid up</Txt></Card>}
+          <StatementCard />
           {d.payment_details ? <Txt v="small" style={{ marginBottom: spacing.lg }}>Other ways to pay: {d.payment_details}</Txt> : null}
           <Section title="Month by month" testID="ledger-section">
             <Card>

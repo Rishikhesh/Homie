@@ -1,9 +1,10 @@
 """Rent ledger, simulated payments and bank feed, expenses, year-end report."""
 import asyncio, csv, io
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pymongo.errors import DuplicateKeyError
-from core import db, NF, uid, iso, now, get_user, need, period_of, next_period, month_name, money, first, tenant_thread, post, activity, DEMO
+from core import db, NF, uid, iso, now, get_user, get_media_user, need, period_of, next_period, month_name, money, first, tenant_thread, post, activity, DEMO
 from data import pdf_bytes
 
 router = APIRouter(prefix="/api")
@@ -132,23 +133,30 @@ async def pay_rent(body: dict, user=Depends(get_user)):
             raise HTTPException(409, "Nothing is due right now")
         amt, period = row["remaining"], row["period"]
         key = f"pay:{user['id']}:{period}:{len(row['payment_ids'])}"
+    lock_until = iso(now() + timedelta(seconds=120))
     try:
-        await db.locks.insert_one({"key": key, "expires_at": iso()})
+        await db.locks.insert_one({"key": key, "expires_at": lock_until})
     except DuplicateKeyError:
-        raise HTTPException(409, "This payment is already being processed")
-    txn = {"id": uid(), "landlord_id": unit["landlord_id"], "date": iso(), "amount": float(amt), "sender_name": user["name"],
-           "memo": f"Rentwise transfer from {user['name']}", "status": "new", "payment_id": None, "source": "app_sim"}
-    await db.bank_txns.insert_one(dict(txn))
-    if kind == "deposit":
-        pay = await record_payment(unit, amt, period, "app_sim", "deposit", txn["id"])
-        await db.bank_txns.update_one({"id": txn["id"]}, {"$set": {"status": "matched", "payment_id": pay["id"]}})
-    else:
-        pay = await auto_match(txn)
+        # A lock left by a crashed request expires after 2 minutes; take it over instead of blocking forever.
+        if not await db.locks.find_one_and_update({"key": key, "expires_at": {"$lt": iso()}}, {"$set": {"expires_at": lock_until}}):
+            raise HTTPException(409, "This payment is already being processed")
+    try:
+        txn = {"id": uid(), "landlord_id": unit["landlord_id"], "date": iso(), "amount": float(amt), "sender_name": user["name"],
+               "memo": f"Rentwise transfer from {user['name']}", "status": "new", "payment_id": None, "source": "app_sim"}
+        await db.bank_txns.insert_one(dict(txn))
+        if kind == "deposit":
+            pay = await record_payment(unit, amt, period, "app_sim", "deposit", txn["id"])
+            await db.bank_txns.update_one({"id": txn["id"]}, {"$set": {"status": "matched", "payment_id": pay["id"]}})
+        else:
+            pay = await auto_match(txn)
+    except Exception:
+        await db.locks.delete_one({"key": key})
+        raise
     return {"ok": True, "payment": pay}
 
 
 @router.get("/receipts/{pid}.pdf")
-async def receipt_pdf(pid: str, user=Depends(get_user)):
+async def receipt_pdf(pid: str, user=Depends(get_media_user)):
     p = await db.payments.find_one({"id": pid}, NF)
     if not p or user["id"] not in (p["tenant_id"], p["landlord_id"], user.get("acting_by")):
         raise HTTPException(404, "Receipt not found")
@@ -195,14 +203,6 @@ async def bank(user=Depends(get_user)):
         tenants.append({"tenant_id": t["id"], "name": t["name"], "unit_label": u["label"]})
     return {"connected": bool(user.get("bank_connected")), "bank_name": user.get("bank_name"), "review": [t for t in txns if t["status"] == "review"],
             "feed": [t for t in txns if t["status"] != "review"], "tenants": tenants}
-
-
-@router.post("/money/bank/connect")
-async def bank_connect(body: dict, user=Depends(get_user)):
-    need(user, "landlord")
-    name = body.get("bank", "Demo Bank") + " ••1234"
-    await db.users.update_one({"id": user["id"]}, {"$set": {"bank_connected": True, "bank_name": name}})
-    return {"connected": True, "bank_name": name}
 
 
 @router.post("/money/bank/simulate")
@@ -271,7 +271,8 @@ async def build_report(user_id, pid, year):
     units = [u async for u in db.units.find({"property_id": pid}, NF)]
     uids = [u["id"] for u in units]
     pays = [p async for p in db.payments.find({"unit_id": {"$in": uids}, "status": "recorded", "date": {"$regex": f"^{year}"}}, NF)]
-    rents = sum(p["amount"] for p in pays if p["kind"] == "rent")
+    kept = sum([float(s.get("kept") or 0) async for s in db.deposit_statements.find({"unit_id": {"$in": uids}, "status": "sent", "sent_at": {"$regex": f"^{year}"}}, NF)])
+    rents = sum(p["amount"] for p in pays if p["kind"] == "rent") + kept
     deposits = sum(p["amount"] for p in pays if p["kind"] == "deposit")
     by_unit = [{"label": u["label"], "rent": sum(p["amount"] for p in pays if p["unit_id"] == u["id"] and p["kind"] == "rent")} for u in units]
     exps = [e async for e in db.expenses.find({"property_id": pid, "date": {"$regex": f"^{year}"}}, NF).sort("date", 1)]
@@ -280,7 +281,7 @@ async def build_report(user_id, pid, year):
         cats[e["category"]] = cats.get(e["category"], 0) + e["amount"]
     lines = [{"category": k, "line": SCHED_E.get(k, 19), "amount": v} for k, v in sorted(cats.items(), key=lambda x: SCHED_E.get(x[0], 19))]
     total_exp = sum(cats.values())
-    return {"property": prop, "year": year, "rents_received": rents, "by_unit": by_unit, "deposits_excluded": deposits, "expense_lines": lines,
+    return {"property": prop, "year": year, "rents_received": rents, "deposit_kept": kept, "by_unit": by_unit, "deposits_excluded": deposits, "expense_lines": lines,
             "expenses": exps, "total_expenses": total_exp, "net": rents - total_exp}
 
 
@@ -291,7 +292,7 @@ async def report(pid: str, year: int | None = None, user=Depends(get_user)):
 
 
 @router.get("/reports/{pid}/export")
-async def report_export(pid: str, fmt: str = "pdf", year: int | None = None, user=Depends(get_user)):
+async def report_export(pid: str, fmt: str = "pdf", year: int | None = None, user=Depends(get_media_user)):
     need(user, "landlord")
     r = await build_report(user["id"], pid, year or now().year)
     if fmt == "csv":
@@ -303,13 +304,15 @@ async def report_export(pid: str, fmt: str = "pdf", year: int | None = None, use
             w.writerow([ln["line"], ln["category"], ln["amount"]])
         w.writerow(["", "Total expenses", r["total_expenses"]])
         w.writerow(["", "Net income", r["net"]])
-        w.writerow(["", "Deposits held (not income)", r["deposits_excluded"]])
+        w.writerow(["", "Security deposits received this year (not income)", r["deposits_excluded"]])
         return Response(buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": f"inline; filename=schedule-e-{r['year']}.csv"})
     p = r["property"]
     lines = [f"{p['name']} — {p['address']}, {p['city']} {p['state']}", f"Line 3 · Rents received: {money(r['rents_received'])}"]
     lines += [f"  {u['label']}: {money(u['rent'])}" for u in r["by_unit"]]
+    if r.get("deposit_kept"):
+        lines.append(f"  Deposit kept for damages: {money(r['deposit_kept'])}")
     lines += [f"Line {ln['line']} · {ln['category']}: {money(ln['amount'])}" for ln in r["expense_lines"]]
-    lines += [f"Total expenses: {money(r['total_expenses'])}", f"Net: {money(r['net'])}", f"Security deposits held (excluded): {money(r['deposits_excluded'])}"]
+    lines += [f"Total expenses: {money(r['total_expenses'])}", f"Net: {money(r['net'])}", f"Security deposits received this year (not income, excluded): {money(r['deposits_excluded'])}"]
     b = await asyncio.to_thread(pdf_bytes, f"Schedule E summary {r['year']}", lines, "Prepared by Rentwise. Not tax advice — check with your tax professional.")
     return Response(b, media_type="application/pdf", headers={"Content-Disposition": "inline; filename=schedule-e.pdf"})
 
@@ -365,7 +368,7 @@ async def report_facts(r, pid, yr):
             "margin_pct": round(r["net"] / rents * 100) if rents else None, "units": units, "repairs_total": sum(e["amount"] for e in repairs),
             "repairs_by_unit": {next((u["label"] for u in units if u["unit_id"] == k), "Property"): v for k, v in by_unit.items()},
             "missing_common_deductions": [c for c in ("Insurance", "Taxes", "Mortgage interest", "Utilities") if c not in have],
-            "deposits_held": r["deposits_excluded"]}
+            "deposits_received_this_year": r["deposits_excluded"]}
 
 
 def rule_insights(f):

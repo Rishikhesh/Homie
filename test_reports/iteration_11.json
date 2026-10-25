@@ -1,0 +1,49 @@
+{
+  "summary": "Voice in chat (Emergent OpenAI TTS tts-1/coral + STT gpt-4o-mini-transcribe). Backend 16/16 pytest pass: TTS mp3 via media token & bearer (cache hit 0.5s, identical bytes), 404 for user msg / tenant2 / handyman / unknown id, 401 no auth & login token in ?media rejected, landlord can hear tenant thread, act-as Tom works; STT round-trip of TTS mp3 returns accurate transcript, too_short for tiny file, 401 no auth, 422 missing field; chat send -> agent reply -> TTS of reply OK. Jev playbook regression passes. UI (390x844 tenant /chat, 375x667 landlord /thread): no crashes, chat-mic-button 44x44 next to composer, speak-<id> on every agent msg, tap -> play (HTMLMediaElement play resolved) -> 'Stop reading' -> tap -> 'Read aloud'; switching messages works; landlord send+reply works. CRITICAL: speech-to-text is BROKEN ON WEB. The browser records audio/webm;codecs=opus, but voice.tsx always uploads it as 'recording.m4a'/'audio/m4a'. OpenAI rejects it ('Audio file might be corrupted or unsupported'), the backend returns 502, the ingress swaps the body for a Cloudflare HTML page, and the user sees the toast \"Unexpected token '<', \"<!DOCTYPE \"... is not valid JSON\". The same webm sent as recording.webm transcribed correctly. Native (m4a) path not testable here. No deprecated Expo packages (expo-audio used, no expo-av).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/voice/transcribe", "issue": "Returns HTTP 502 on STT failure. Behind the preview ingress a 502 body is replaced by a Cloudflare HTML page, so the JSON {detail} never reaches the client. Use 422 or 400 (or 200 {text:'', reason:'unclear'}) for bad or unclear audio."},
+      {"endpoint": "POST /api/voice/transcribe", "issue": "f.name is the client filename, which picks the audio format. Sniff the magic bytes instead and set the extension: 1A45DFA3 -> .webm, 'OggS' -> .ogg, 'ftyp' at offset 4 -> .m4a, 'RIFF' -> .wav, ID3/0xFF -> .mp3. This makes STT robust to mislabeled uploads."},
+      {"endpoint": "GET /api/voice/tts/{id}.mp3", "issue": "Access check is not the same as thread_access(). Job threads store tenant_id, so a tenant passes the TTS check for handyman job-thread agent messages even though GET /threads/{id} returns 404 for them (code-level finding; no live job thread for a tenant with an active session to reproduce). Also user.get('acting_by') in the tuple is compared against user['id'] and never matches: a landlord acting as Maria gets 404 on Tom's thread messages, while thread_access lets her read them. Fix: call `t, _ = await thread_access(m['thread_id'], user)` (or reuse its logic)."},
+      {"endpoint": "GET /api/voice/tts/{id}.mp3", "issue": "Also returns 502 on TTS failure (same Cloudflare HTML replacement). Low impact because the audio player ignores the body."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MicButton (web)", "issue": "Speech to text always fails on web. expo-audio web records audio/webm;codecs=opus, but the upload hardcodes name 'recording.m4a' and mimeType 'audio/m4a' (src/voice.tsx:69). The toast shows a raw JSON parse error. Verified: the same webm blob named recording.webm returns the correct transcript (200).", "testID": "chat-mic-button", "priority": "HIGH"},
+      {"component": "MicButton error handling", "issue": "`await res.json()` runs before the res.ok check (src/voice.tsx:70), so a non-JSON error body throws a SyntaxError. That SyntaxError message is shown as the toast. Check res.ok first and fall back to a friendly message if parsing fails.", "testID": "chat-mic-button", "priority": "MEDIUM"},
+      {"component": "SpeakButton", "issue": "Playing state is set optimistically after player.play() (src/voice.tsx:34-36). If loading or decoding fails asynchronously (e.g. TTS 502), the catch never runs: no error toast appears and the icon stays on 'stop' until tapped. Listen for an error or failed load in playbackStatusUpdate (or check player.isLoaded or duration after a timeout), then reset and show the toast.", "testID": "speak-<messageId>", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Mic record -> transcribe -> text in composer (web)", "issue": "Fails 100% on web preview (see ui_bugs). Recording start/stop UI works (red stop icon, 'thinking' spinner, back to idle).", "affected_testIDs": ["chat-mic-button", "chat-input"]}
+    ],
+    "design_issues": [
+      {"screen": "Chat composer (tenant & landlord)", "issues": ["With camera + gallery + mic + Send-with-label, the TextInput is only 114px wide at 375px and 129px at 390px. The 'Message Rentwise' placeholder wraps onto 2 lines and the input grows to 64px tall. Consider an icon-only Send, or folding camera/gallery into one attach button.", "chat-photo buttons are 34px wide (<44pt touch target)."]},
+      {"screen": "Agent message bubble", "issues": ["speak-<id> Pressable stretches to the full bubble width (about 282px wide). The whole row under the text is a tap target, so it is easy to trigger by accident. Add alignSelf:'flex-start'."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_voice.py", "/app/test_reports/pytest/pytest_voice.xml", "/app/backend/tests/test_jev_playbook.py"],
+  "action_items": [
+    "HIGH: Fix web STT. In src/voice.tsx, upload with name/mimeType that match the platform: on web use 'recording.webm' + 'audio/webm' (or derive from the blob type); on native keep m4a. Better still, also sniff the magic bytes in backend/voice.py transcribe() and set f.name to the right extension.",
+    "MEDIUM: In MicButton, check res.ok before res.json() and wrap parsing in try/catch so users never see 'Unexpected token <'. On the backend, return 4xx (not 502) for unclear or unsupported audio so the JSON detail survives the ingress.",
+    "MEDIUM: In voice.py speak(), reuse thread_access() for authorization: it currently lets a tenant hear job-thread messages they can't read, and act-as acting_by never matches.",
+    "LOW: SpeakButton: handle async load/playback errors (reset the icon and show a toast).",
+    "LOW: Composer is cramped; add alignSelf:'flex-start' to the SpeakButton."
+  ],
+  "critical_code_review_comments": [
+    "voice.tsx:69 hardcodes the m4a filename/mime for all platforms; this breaks web.",
+    "voice.tsx:70 parses JSON before checking res.ok.",
+    "voice.py:43 duplicates and diverges from server.thread_access; the acting_by entry in the membership tuple is ineffective.",
+    "voice.py uses 502 for upstream failures; preview ingress replaces 502 bodies with HTML.",
+    "Module-level createAudioPlayer(null) in voice.tsx runs at import time (fine on web/native, just noting it is a global singleton by design)."
+  ],
+  "updated_files": ["/app/backend/tests/test_voice.py"],
+  "success_rate": {"backend": "100% (16/16 pytest; 4 minor design/authz issues)", "frontend": "~80% (TTS playback/toggle, mic button render/record UI, chat send regression pass; web STT transcription fails)"},
+  "seed_data_creation": "Sent 'TEST_ voice regression: what day is rent due?' in Tom's tenant thread and 'TEST_ Who's late?' in the landlord thread (plus agent replies). TTS cache entries were created in db.tts_cache.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Headless Chromium in browser_automation grants a fake mic: tapping chat-mic-button really records (webm), so the web STT path can be exercised end to end. To produce real speech webm: fetch the TTS mp3, decodeAudioData, pipe it into MediaStreamDestination + MediaRecorder, then POST to /api/voice/transcribe (see iteration_11 approach). FlatList is inverted: use non-force click on speak-<id> after Playwright scroll (force click on off-screen items hits wrong coords). Run pytest with -p no:xdist -o addopts=''.",
+  "rca_of_issue": "Web STT: expo-audio web recorder -> MediaRecorder output audio/webm;codecs=opus; voice.tsx sends it as recording.m4a/audio/m4a -> backend sets f.name='recording.m4a' -> OpenAI rejects it as corrupted -> backend 502 -> Cloudflare HTML -> res.json() SyntaxError toast. Reproduced via UI and direct fetch. Sending the same blob as recording.webm returned 200 with the correct text."
+}

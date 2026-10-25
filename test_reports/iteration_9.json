@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend tests at 390x844 for the media-token, bank, report and lease-upload fixes. All requested flows PASS. (1) Media token: property photo from a file (detail page and properties list), the tenant chat photo thumbnail (FileImage), tenant 'Receipt (PDF)' and deposit 'Receipt', the lease 'Original PDF', and the report 'Export PDF' and 'Export CSV' all load with ?media=<token> (HTTP 200 with the correct content type). No URL contains token=. The same receipt with ?token=<session> returns 401, as do the file and report export URLs. A media token sent as a Bearer header returns 401, and POST /rent/pay?media= returns 401. Act-as with media plus &act= returns 200. (2) Money tab: the Connect-bank sheet shows only 'Connect with Plaid (Sandbox)'. There is no Demo Bank or Chase button and no Simulate button. POST /api/money/bank/connect returns 404. (3) The report shows 'Security deposits received this year ($2,450)…' and the word 'held' is gone. (4) Lease upload on Room C (invite pending): the AI extract prefilled every field. deposit-paid-toggle is checked by default and switches on tap. Save redirects to /lease/<id>, which shows 'Deposit $1,300 (paid)'. Room C rent on property detail stays $1,150 after uploading a $1,300 lease. (5) Tenant Pay rent: Overdue $1,200 -> pay-confirm-confirm -> 'All paid'. The October ledger row then shows Paid with a Receipt (PDF) that returns 200. No deprecated Expo packages were found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/money/bank/simulate", "issue": "The demo bank-simulation endpoint still exists (DEMO-gated, money.py:208). No UI calls it any more. Remove it if the goal was to drop the duplicate demo path entirely."},
+      {"endpoint": "POST /api/leases/upload", "issue": "The upload no longer changes units.rent, so a lease with a different rent ($1,300 vs a unit rent of $1,150) leaves the tenant billed at the old rent forever, with nothing pointing out the mismatch. Consider applying the lease rent from the lease start or the next unbilled period, or warn on the lease or review screen that 'Lease rent differs from room rent'."},
+      {"endpoint": "GET /api/files, /receipts, /reports export (media token)", "issue": "The media token lasts as long as the session and is never rotated. A leaked link gives read-only access to all of the user's files until the session expires. This is acceptable, but a short TTL or rotation on /auth/me would be safer."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: remove the leftover POST /money/bank/simulate endpoint (money.py:208).",
+    "Optional: handle a lease rent that differs from the unit rent after an upload (apply it from the next period, or show a warning)."
+  ],
+  "critical_code_review_comments": [
+    "api.ts fileUrl and authedUrl produce '?media=null' if they are called before /auth/me resolves. In practice screens render after me loads, but a guard such as returning undefined when media is null would be safer.",
+    "server.py is still over 1000 lines (guideline 700)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only; spot curl checks all as expected)", "frontend": "100% (all 5 requested flows)"},
+  "seed_data_creation": "Uploaded a test house photo and set it as the Maple House photo, uploaded a TEST lease for Room C, attached a chat photo (not sent), and paid Tom's Oct rent. POST /api/sample/reset was then run twice, so sample data is back to seed state. The current property id is 3b219deb10364ae2 and IDs have changed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "On web, expo-web-browser openBrowserAsync calls window.open. Stub it with add_init_script (window.__opened) to capture PDF URLs instead of waiting for popups. The lease PDF generator is /tmp/mkpdf.py (it uses backend/data.py pdf_bytes). Images are uploaded via POST /api/upload (multipart 'file'). With Plaid connected, the Connect sheet is hidden, so route-mock /api/money/bank to {connected:false} and /api/plaid/status to {configured:true, items:[]} to reach it. After a sample reset Tom has October rent due, which is useful for testing Pay rent."
+}

@@ -18,7 +18,7 @@ export default function Money() {
   const bank = useLive<any>(() => api("/money/bank"), 3000);
   const plaid = useLive<any>(() => api("/plaid/status"), 0);
   const [linking, setLinking] = useState(false);
-  const [sheet, setSheet] = useState<null | "connect" | "sim" | "plaidsim" | "expense" | "cash" | { assign: any }>(null);
+  const [sheet, setSheet] = useState<null | "connect" | "plaidsim" | "expense" | "cash" | { assign: any }>(null);
   const connectPlaid = async () => {
     setLinking(true);
     try {
@@ -83,7 +83,6 @@ export default function Money() {
                     <BigButton style={{ flex: 1 }} testID="plaid-sandbox-deposit-button" tone="soft" icon="add-circle-outline" label="Test deposit" onPress={() => setSheet("plaidsim")} />
                   </Row>
                 ) : null}
-                {d.demo && !plaid.data?.items?.length ? <BigButton testID="simulate-deposit-button" tone="soft" icon="flash-outline" label="Simulate incoming deposit" onPress={() => setSheet("sim")} /> : null}
                 {!plaid.data?.items?.length && plaid.data?.configured ? <TextButton testID="plaid-upgrade-button" icon="lock-closed-outline" label="Connect a bank with Plaid" onPress={() => setSheet("connect")} /> : null}
               </>
             )}
@@ -131,28 +130,19 @@ export default function Money() {
         </>
       )}
 
-      <Sheet visible={sheet === "connect"} onClose={() => setSheet(null)} title="Pick your bank" testID="bank-connect-sheet">
+      <Sheet visible={sheet === "connect"} onClose={() => setSheet(null)} title="Connect your bank" testID="bank-connect-sheet">
         {plaid.data?.configured ? (
           <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
             <BigButton testID="plaid-connect-button" icon="lock-closed-outline" label="Connect with Plaid (Sandbox)" loading={linking} onPress={connectPlaid} />
             <Txt v="small">Sandbox login: user_transactions_dynamic / any password (lets you add test deposits). Fake money only.</Txt>
           </View>
-        ) : <Txt v="small" style={{ marginBottom: spacing.md }}>Plaid keys aren&apos;t added yet — use a demo bank for now.</Txt>}
-        <Txt v="small" style={{ marginBottom: spacing.md }}>Or a demo bank — no real bank connection.</Txt>
-        {["Demo Bank", "Chase (demo)", "Wells Fargo (demo)"].map((b, i) => <BigButton key={b} testID={`bank-option-${i}`} tone="soft" label={b} style={{ marginBottom: spacing.sm }} onPress={() => run(() => api("/money/bank/connect", { body: { bank: b } }), "Bank connected (simulated)")} />)}
+        ) : <Txt v="small" style={{ marginBottom: spacing.md }}>Bank connection isn&apos;t set up yet. Tenant payments made in Rentwise still show up here.</Txt>}
       </Sheet>
       <Sheet visible={sheet === "plaidsim"} onClose={() => setSheet(null)} title="Plaid Sandbox deposit" testID="plaid-sim-sheet">
         <View style={{ gap: spacing.md }}>
           <Field testID="plaid-sim-sender-input" label="Description" value={f.sender || ""} onChangeText={(v) => setF({ ...f, sender: v })} hint="Include the tenant's full name, e.g. Tom Chen rent" />
           <Field testID="plaid-sim-amount-input" label="Amount ($)" keyboardType="decimal-pad" value={f.amount || ""} onChangeText={(v) => setF({ ...f, amount: v })} />
           <BigButton testID="plaid-sim-submit" label="Send to Plaid" onPress={() => run(() => api("/plaid/sandbox/deposit", { body: { sender_name: f.sender, amount: Number(f.amount) } }), "Sent — tap Sync now in a few seconds")} />
-        </View>
-      </Sheet>
-      <Sheet visible={sheet === "sim"} onClose={() => setSheet(null)} title="Simulate a deposit" testID="simulate-sheet">
-        <View style={{ gap: spacing.md }}>
-          <Field testID="sim-sender-input" label="Sender name" value={f.sender || ""} onChangeText={(v) => setF({ ...f, sender: v })} hint="Exact tenant name auto-matches, e.g. Tom Chen" />
-          <Field testID="sim-amount-input" label="Amount ($)" keyboardType="decimal-pad" value={f.amount || ""} onChangeText={(v) => setF({ ...f, amount: v })} />
-          <BigButton testID="sim-submit" label="Add deposit" onPress={() => run(() => api("/money/bank/simulate", { body: { sender_name: f.sender, amount: Number(f.amount) } }), "Deposit added")} />
         </View>
       </Sheet>
       <Sheet visible={sheet === "expense"} onClose={() => setSheet(null)} title="Add an expense" testID="expense-sheet">

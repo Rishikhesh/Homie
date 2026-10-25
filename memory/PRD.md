@@ -37,8 +37,7 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Rentwise
 - **Testing:** iteration 1 passed 27 of 28 backend tests; both high-priority bugs are fixed and now all 28 pass. The frontend flows passed.
 
 ## Backlog
-- P1: eval suite (`backend/evals`) with the real models; more unit tests (fake clock, privacy, money)
-- P1: upload an existing lease PDF and extract terms with Opus
+- P1: more unit tests (fake clock, privacy, money)
 - P1: stage accounts (`DEMO_*_EMAIL` settings)
 - P2: Stripe payments (B1), Plaid bank feed (B2), real e-sign (B3)
 - P2: rolling thread summaries and automatic fact extraction after conversations
@@ -46,3 +45,29 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Rentwise
 
 ## Upload existing signed lease (2026-06)
 - Property detail → "Upload signed lease" (`/lease/upload?unit=`): pick PDF → `/api/upload` → `POST /api/leases/extract` (pypdf text + Opus JSON terms, chunks) → landlord reviews/edits → `POST /api/leases/upload` saves status `signed`, `source: upload`, `file_id`; voids older leases, updates unit rent/due day, marks onboarding lease step, posts lease card to tenant; `search_lease` uses its chunks; `/leases/{id}/pdf` returns the original. Scanned (no-text) PDFs get a clear error.
+
+## Fixes + eval suite (2026-06)
+- **Eval suite** `backend/evals` (`python -m evals.run [--only 0,7] [--no-tone]`): the 21 scenarios from section 4.9 (demo script #0 plus #1–20) run over HTTP against the real models with the demo logins. The sample home is reset between cases. Each run checks tool calls (logged to `db.tool_calls`) and the database state, then a Haiku tone judge (needs an average of 4 or more). Results go to `evals/results/*.json`. Last run: 21/21 scenarios, tone 4.49.
+- Found by the evals: the off-topic filter refused tenant answers to relayed questions. It now also sees the agent's previous message.
+- Rent and deposit pay locks now expire after 2 minutes, are taken over if stale, and are released when a payment fails.
+- Login tokens are no longer accepted in URLs. Images and PDFs use a read-only `media` token from `/auth/me` (`get_media_user`).
+- The report label now reads "Security deposits received this year".
+- The demo `/money/bank/connect` endpoint and the demo bank picker are removed. Plaid is the only way to connect a bank.
+- Uploaded leases: unit rent is no longer changed. There's a "deposit already paid" option (`terms.deposit_paid`), and missing terms stay empty.
+
+## Move-in / move-out inspection (headline workflow, 2026-06) — plan: move-in-out-prompt.md
+- Backend `inspections.py` (own router):
+  - **Capture:** video upload (mp4/mov, ≤45 s, ≤100 MB). Frames are extracted with imageio-ffmpeg (1 every 2 s, max 15, phash dedupe < 6, 1024 px). Photos are the fallback.
+  - **Move-in:** move-in check → Sonnet writes area notes → tenant taps "Looks right" → record locked with `report_hash`; any write after that returns 409.
+  - **Move-out:** started by the landlord, or by the agent's `suggest_move_out` one-tap approval. `due_by` uses the state's `deposit_return_days`. The countdown comes from `GET /move-outs`.
+  - **Analysis:** frames are paired by phash. Jev screens each pair (raw HTTP with the `TypeSafe-Danger-Zone-Images` header; retries at 640/512 px on `max_tokens_exceeded`). Routing constants are at the top of the file. Added safety net: a phash distance ≥ 8 never skips Sonnet. Sonnet reviews flagged pairs (max 3 in parallel). Server-side validation and merging follow.
+  - **Statement:** draft `deposit_statements` plus a `deposit_statement` approval. `PATCH /statements/{id}` with `version` supports price / remove / undo / category / add, and totals are always recomputed on the server.
+  - **Approval** (`flows.apply_approval`): recorded `deposit_refund` payment, chat card, PDF (`/statements/{id}/pdf`), `kept` counted as Schedule E income (`deposit_kept`).
+  - **Disputes:** "Question this" goes to the tenant chat; the agent's `suggest_drop_charge` creates a `drop_charge` approval, which refunds the difference.
+- Jev's `box` question type is not available through the proxy, so the damage box comes from Sonnet.
+- **Frontend:** `/inspection/[id]` (capture, review notes, comparing progress, read-only record with video), `/statement/[id]` (landlord edit and approve; tenant read-only with "Question this"). Also: tenant Home move-in/move-out card, Payments statement card, landlord Home Move-outs countdown, property unit buttons (Move-in record / Start move-out / Deposit statement).
+- **Tests and evals:** `tests/test_inspections.py` (18 tests, models faked). `python -m evals.move_out` uses real models and your pairs in `evals/media/<pair>/` (generated pairs until you add some); last run 5/6.
+
+## Voice in chat (June 2026) — DONE, tested (iteration_11 + fixes)
+- Read aloud (Emergent TTS, tts-1 "coral", cached) on agent replies; tap-to-talk mic (Emergent STT gpt-4o-mini-transcribe) fills the message box.
+- Fixes after testing: audio format detected from file bytes (web webm / phone m4a), unclear audio returns friendly 422, read-aloud permission matches chat read rules, failed playback shows toast, icon-only send button for wider message box.

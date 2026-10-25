@@ -206,7 +206,8 @@ class TestMoney:
 
     def test_bank_connect_sim_assign(self):
         assert get("landlord", "/money/bank").status_code == 200
-        assert post("landlord", "/money/bank/connect", {"bank": "Chase"}).json()["connected"]
+        # The demo "connect bank" endpoint was removed (Plaid is the only connect path).
+        assert post("landlord", "/money/bank/connect", {"bank": "Chase"}).status_code in (404, 405)
         r = post("landlord", "/money/bank/simulate", {"sender_name": "Maria Lopez", "amount": 50}); assert r.status_code == 200, r.text
         rev = get("landlord", "/money/bank").json()["review"]
         if rev:

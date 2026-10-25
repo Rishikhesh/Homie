@@ -10,6 +10,7 @@ import { AgentMark, Chip, ChipRow, FileImage, Ionicons, StatusPill, Txt, statusL
 import { PhotoButtons, PhotoStrip } from "@/src/inputs";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import { useAuth } from "@/src/auth";
+import { MicButton, SpeakButton, stopSpeaking } from "@/src/voice";
 
 function SlotCard({ ticketId, role }: { ticketId: string; role: string }) {
   const { data: t, reload } = useLive<any>(() => api(`/tickets/${ticketId}`), 5000, [ticketId]);
@@ -88,6 +89,8 @@ function CardView({ c, role }: { c: any; role: string }) {
     case "receipt": return <TicketMini ticketId={c.ticket_id} role={role} label="Paid receipt ›" />;
     case "payment_receipt": return <TextButton testID={`chat-receipt-${c.payment_id}`} icon="document-text-outline" label="View receipt (PDF)" onPress={() => WebBrowser.openBrowserAsync(authedUrl(`/receipts/${c.payment_id}.pdf`))} />;
     case "lease": return <TextButton testID="chat-open-lease" icon="document-text-outline" label="Open lease" onPress={() => router.push(`/lease/${c.lease_id}`)} />;
+    case "statement": return <TextButton testID={`chat-statement-${c.statement_id}`} icon="document-text-outline" label="Open move-out statement ›" onPress={() => router.push(`/statement/${c.statement_id}`)} />;
+    case "inspection": return <TextButton testID={`chat-inspection-${c.inspection_id}`} icon="videocam-outline" label="Start the check ›" onPress={() => router.push(`/inspection/${c.inspection_id}`)} />;
     default: return null;
   }
 }
@@ -101,6 +104,7 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
   const [text, setText] = useState("");
   const [atts, setAtts] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  useEffect(() => () => stopSpeaking(), [threadId]); // stale narration never plays over the next screen
   const listRef = useRef<FlatList>(null);
   const msgs = data?.messages || [];
   const busy = data?.thread?.busy || sending;
@@ -136,6 +140,7 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
                 backgroundColor: user ? (mine ? colors.brandPrimary : colors.surfaceTertiary) : m.role === "system" ? colors.errorSoft : colors.surfaceSecondary, borderWidth: user ? 0 : 0.5, borderColor: colors.border }}>
                 {!user ? <View style={{ marginBottom: 4 }}><AgentMark small /></View> : null}
                 {m.text ? <Txt v="body" color={user && mine ? colors.onBrandPrimary : undefined}>{m.text}</Txt> : null}
+                {!user && m.role !== "system" && m.text ? <SpeakButton messageId={m.id} /> : null}
                 {m.attachments?.length ? <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>{m.attachments.map((a: string) => <FileImage key={a} id={a} size={120} />)}</View> : null}
                 {(m.cards || []).map((c: any, i: number) => <CardView key={i} c={c} role={role} />)}
               </View>
@@ -149,12 +154,12 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
           {atts.length ? <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><PhotoStrip ids={atts} size={56} onRemove={(id) => setAtts(atts.filter((x) => x !== id))} /></View> : null}
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: quickReplies.length ? 0 : spacing.sm }}>
             <PhotoButtons compact testID="chat-photo" onUploaded={(id) => setAtts((a) => [...a, id])} />
+            <MicButton disabled={busy} onText={(t) => setText((cur) => (cur.trim() ? `${cur.trim()} ${t}` : t))} />
             <TextInput testID="chat-input" value={text} onChangeText={setText} placeholder="Message Rentwise" placeholderTextColor={colors.muted} multiline
               style={{ flex: 1, minHeight: 44, maxHeight: 120, borderRadius: 22, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, backgroundColor: colors.surfaceTertiary, color: colors.onSurface, fontFamily: fonts.regular, fontSize: 16 }} />
             <Pressable testID="chat-send-button" accessibilityLabel="Send" onPress={() => send()} disabled={busy || (!text.trim() && !atts.length)}
-              style={{ height: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 4, opacity: busy || (!text.trim() && !atts.length) ? 0.5 : 1 }}>
-              <Ionicons name="arrow-up" size={18} color={colors.onBrandPrimary} />
-              <Txt v="label" color={colors.onBrandPrimary} style={{ fontSize: 14 }}>Send</Txt>
+              style={{ height: 44, width: 44, borderRadius: 22, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center", opacity: busy || (!text.trim() && !atts.length) ? 0.5 : 1 }}>
+              <Ionicons name="arrow-up" size={20} color={colors.onBrandPrimary} />
             </Pressable>
           </View>
         </View>

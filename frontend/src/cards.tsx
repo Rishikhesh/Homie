@@ -47,7 +47,7 @@ export function ApprovalCard({ a, onDone, index = 0 }: { a: any; onDone: () => v
   };
   const isMoney = a.amount > 0;
   const over = a.kind === "reimbursement" && a.limit && a.amount > a.limit;
-  const verb = a.kind === "handyman_payment" ? "Pay" : a.kind === "reimbursement" ? "Credit" : "Approve";
+  const verb = a.kind === "handyman_payment" ? "Pay" : a.kind === "reimbursement" ? "Credit" : a.kind === "drop_charge" ? "Drop charge · refund" : a.kind === "deposit_statement" ? "Refund" : "Approve";
   const photos = [...(a.after_photos || []), ...(a.receipt_id ? [a.receipt_id] : [])];
   return (
     <Card agent index={index} testID={`approval-card-${a.id}`} style={a.urgent ? { borderColor: colors.error, borderWidth: 1.5 } : undefined}>
@@ -61,7 +61,11 @@ export function ApprovalCard({ a, onDone, index = 0 }: { a: any; onDone: () => v
       {photos.length ? <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm }}>{photos.map((p: string) => <FileImage key={p} id={p} size={72} />)}</View> : null}
       {a.recommendation ? <View style={{ marginTop: spacing.sm, flexDirection: "row", gap: 6 }}><AgentMark small /><Txt v="small" style={{ flex: 1 }}>{a.recommendation.replace("✦ ", "")}</Txt></View> : null}
       <View style={{ gap: spacing.sm, marginTop: spacing.md }}>
-        {!isMoney ? (
+        {a.kind === "deposit_statement" ? (
+          <BigButton testID={`approval-review-statement-${a.id}`} label="Review statement" onPress={() => router.push(`/statement/${a.statement_id}`)} />
+        ) : a.kind === "start_move_out" ? (
+          <BigButton testID={`approval-start-moveout-${a.id}`} label="Start move-out" onPress={() => decide("approve")} loading={busy} />
+        ) : !isMoney ? (
           <BigButton testID={`approval-ack-${a.id}`} label="Got it" onPress={() => decide("approve")} loading={busy} />
         ) : over ? (
           <>
@@ -71,7 +75,8 @@ export function ApprovalCard({ a, onDone, index = 0 }: { a: any; onDone: () => v
         ) : (
           <BigButton testID={`approval-approve-${a.id}`} label={a.kind === "self_fix_limit" ? `Approve up to ${money(a.amount)}` : `${verb} ${money(a.amount)}`} onPress={() => setConfirm({ amount: a.amount, label: `${verb} ${money(a.amount)}` })} />
         )}
-        {isMoney ? (
+        {a.kind === "start_move_out" ? <TextButton testID={`approval-decline-${a.id}`} label="Not now" color={colors.error} onPress={() => decide("decline")} /> : null}
+        {isMoney && a.kind !== "deposit_statement" ? (
           <Row style={{ justifyContent: "space-between" }}>
             {!over ? <TextButton testID={`approval-change-${a.id}`} label="Change amount" onPress={() => setEdit(true)} /> : <View />}
             <TextButton testID={`approval-decline-${a.id}`} label="Decline" color={colors.error} onPress={() => decide("decline")} />

@@ -5,6 +5,7 @@ export const API = `${process.env.EXPO_PUBLIC_BACKEND_URL}/api`;
 export const TOKEN_KEY = "rw_session_token";
 
 let token: string | null = null;
+let media: string | null = null;
 let actAs: string | null = null;
 let onUnauthorized: (() => void) | null = null;
 
@@ -12,6 +13,7 @@ export const session = {
   get token() { return token; },
   get actAs() { return actAs; },
   setToken(t: string | null) { token = t; },
+  setMedia(m: string | null) { media = m; },
   setActAs(a: string | null) { actAs = a; },
   onUnauthorized(fn: () => void) { onUnauthorized = fn; },
 };
@@ -42,13 +44,14 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   return data as T;
 }
 
+// Links opened outside the app (images, PDFs) carry a read-only media token, never the login token.
 export function fileUrl(id?: string | null) {
   if (!id) return undefined;
-  return `${API}/files/${id}?token=${token}${actAs ? `&act=${actAs}` : ""}`;
+  return `${API}/files/${id}?media=${media}${actAs ? `&act=${actAs}` : ""}`;
 }
 
 export function authedUrl(path: string) {
-  return `${API}${path}${path.includes("?") ? "&" : "?"}token=${token}${actAs ? `&act=${actAs}` : ""}`;
+  return `${API}${path}${path.includes("?") ? "&" : "?"}media=${media}${actAs ? `&act=${actAs}` : ""}`;
 }
 
 export async function saveToken(t: string | null) {

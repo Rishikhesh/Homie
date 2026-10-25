@@ -4,12 +4,14 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from starlette.middleware.cors import CORSMiddleware
 from core import (db, NF, uid, iso, now, get_user, need, DEMO, APP_NAME, period_of, money, first, tz_for, put_object, get_object, init_storage,
-                  tenant_thread, landlord_thread, post, activity, log, read_file, OPUS)
+                  tenant_thread, landlord_thread, post, activity, log, read_file, OPUS, get_media_user, media_token_for)
 import flows
 import agent
 from data import seed_static, create_sample_home, lease_text, doc_hash, pdf_bytes, STATE_RULES, DEPOSIT_MONTHS
 from money import router as money_router, unit_ledger, oldest_unpaid, deposit_due
 from plaid_bank import router as plaid_router
+from inspections import router as inspections_router, VIDEO_MAX_MB
+from voice import router as voice_router
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -80,8 +82,9 @@ async def pending_invites(user):
 
 
 @api.get("/auth/me")
-async def me(user=Depends(get_user)):
-    res = {"user": user, "acting": bool(user.get("acting_by")), "demo": DEMO}
+async def me(request: Request, user=Depends(get_user)):
+    res = {"user": user, "acting": bool(user.get("acting_by")), "demo": DEMO,
+           "media_token": await media_token_for(request.headers["Authorization"][7:])}
     if user.get("acting_by"):
         res["real_user"] = await db.users.find_one({"id": user["acting_by"]}, NF)
     if user.get("role") == "tenant":
@@ -198,6 +201,13 @@ async def create_prop(body: dict, user=Depends(get_user)):
     return p
 
 
+async def _insp_sum(u, kind):
+    if not u.get("tenant_id"):
+        return None
+    i = await db.inspections.find_one({"unit_id": u["id"], "tenant_id": u["tenant_id"], "kind": kind}, NF, sort=[("created_at", -1)])
+    return {"id": i["id"], "status": i["status"], "statement_id": i.get("statement_id"), "due_by": i.get("due_by")} if i else None
+
+
 @api.get("/properties/{pid}")
 async def get_prop(pid: str, user=Depends(get_user)):
     need(user, "landlord")
@@ -212,7 +222,8 @@ async def get_prop(pid: str, user=Depends(get_user)):
         if ob:
             steps = int(bool(ob.get("lease_signed"))) + int(bool((ob.get("insurance") or {}).get("done"))) + int(all((ob.get("utilities") or {}).get(k) for k in ("electric", "gas", "internet")))
         units.append({**u, "tenant": {"id": t["id"], "name": t["name"], "is_sample": t.get("is_sample")} if t else None, "invite": inv,
-                      "onboarding_steps": steps, "lease": {"id": lease["id"], "status": lease["status"]} if lease else None})
+                      "onboarding_steps": steps, "lease": {"id": lease["id"], "status": lease["status"]} if lease else None,
+                      "move_in": await _insp_sum(u, "move_in"), "move_out": await _insp_sum(u, "move_out")})
     p["units"] = units
     p["state_rules"] = STATE_RULES.get(p["state"])
     return p
@@ -600,11 +611,16 @@ async def send_msg(thread_id: str, body: dict, user=Depends(get_user)):
 @api.post("/upload")
 async def upload(file: UploadFile = File(...), user=Depends(get_user)):
     data = await file.read()
-    if len(data) > 12 * 1024 * 1024:
-        raise HTTPException(413, "That file is too big. Please pick one under 12 MB")
     ext = (file.filename or "f.jpg").rsplit(".", 1)[-1].lower()[:5]
-    if not ((file.content_type or "").startswith("image/") or file.content_type == "application/pdf" or ext in ("jpg", "jpeg", "png", "heic", "webp", "pdf")):
-        raise HTTPException(415, "Please upload a photo or a PDF")
+    is_video = (file.content_type or "") in ("video/mp4", "video/quicktime") or ext in ("mp4", "mov")
+    if is_video and len(data) > VIDEO_MAX_MB * 1024 * 1024:
+        raise HTTPException(413, f"That video is too big. Please keep it under {VIDEO_MAX_MB} MB")
+    if not is_video and len(data) > 12 * 1024 * 1024:
+        raise HTTPException(413, "That file is too big. Please pick one under 12 MB")
+    if not (is_video or (file.content_type or "").startswith("image/") or file.content_type == "application/pdf" or ext in ("jpg", "jpeg", "png", "heic", "webp", "pdf")):
+        raise HTTPException(415, "Please upload a photo, a video or a PDF")
+    if is_video and ext not in ("mp4", "mov"):
+        ext = "mov" if file.content_type == "video/quicktime" else "mp4"
     fid = uid()
     path = f"{APP_NAME}/uploads/{user['id']}/{fid}.{ext}"
     ctype = file.content_type or "image/jpeg"
@@ -619,7 +635,7 @@ async def upload(file: UploadFile = File(...), user=Depends(get_user)):
 
 
 @api.get("/files/{fid}")
-async def get_file(fid: str, user=Depends(get_user)):
+async def get_file(fid: str, request: Request, user=Depends(get_media_user)):
     f = await db.files.find_one({"id": fid}, NF)
     if not f:
         raise HTTPException(404, "File not found")
@@ -627,13 +643,27 @@ async def get_file(fid: str, user=Depends(get_user)):
     if not ok and f.get("ticket_id"):
         t = await db.tickets.find_one({"id": f["ticket_id"]}, NF)
         ok = bool(t and can_see(t, user))
+    if not ok and f.get("inspection_id"):
+        insp = await db.inspections.find_one({"id": f["inspection_id"]}, NF)
+        ok = bool(insp and user.get("role") != "handyman" and (user["id"] in (insp["tenant_id"], insp["landlord_id"]) or user.get("acting_by") == insp["landlord_id"]))
     if not ok and user["role"] == "landlord":
         p = await db.properties.find_one({"photo": fid, "landlord_id": user["id"]})
         ok = bool(p)
     if not ok:
         raise HTTPException(404, "File not found")
     data, ctype = await asyncio.to_thread(get_object, f["path"])
-    return Response(data, media_type=f.get("content_type") or ctype, headers={"Cache-Control": "private, max-age=86400"})
+    media = f.get("content_type") or ctype
+    rng = request.headers.get("range", "")
+    m = re.match(r"bytes=(\d*)-(\d*)", rng)
+    if m and (m.group(1) or m.group(2)):  # iOS video players need partial content
+        size = len(data)
+        start = int(m.group(1)) if m.group(1) else max(0, size - int(m.group(2)))
+        end = min(int(m.group(2)), size - 1) if m.group(1) and m.group(2) else size - 1
+        if start >= size or start > end:
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
+        return Response(data[start:end + 1], status_code=206, media_type=media,
+                        headers={"Content-Range": f"bytes {start}-{end}/{size}", "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=86400"})
+    return Response(data, media_type=media, headers={"Cache-Control": "private, max-age=86400", "Accept-Ranges": "bytes"})
 
 
 # ---------------- landlord home / approvals ----------------
@@ -903,7 +933,7 @@ async def sign_lease(lid: str, body: dict, user=Depends(get_user)):
 
 
 @api.get("/leases/{lid}/pdf")
-async def lease_pdf(lid: str, user=Depends(get_user)):
+async def lease_pdf(lid: str, user=Depends(get_media_user)):
     le = await get_lease(lid, user)
     if le.get("file_id"):
         data, _ = await read_file(le["file_id"])
@@ -973,6 +1003,8 @@ async def sample_people(user=Depends(get_user)):
 app.include_router(api)
 app.include_router(money_router)
 app.include_router(plaid_router)
+app.include_router(inspections_router)
+app.include_router(voice_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

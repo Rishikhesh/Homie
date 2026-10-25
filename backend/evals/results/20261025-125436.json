@@ -1,0 +1,159 @@
+{
+  "at": "2026-10-25T12:54:36.962746",
+  "scenarios": [
+    {
+      "case": 0,
+      "name": "demo_script",
+      "pass": true,
+      "note": "Demo script ran end to end with 2 landlord taps",
+      "seconds": 20.2
+    },
+    {
+      "case": 1,
+      "name": "sink_offer_own_plumber",
+      "pass": true,
+      "note": "Plumbing ticket offered to Hank",
+      "seconds": 10.5
+    },
+    {
+      "case": 2,
+      "name": "decline_next_handyman",
+      "pass": true,
+      "note": "Re-offered to Sam; tenant told",
+      "seconds": 0.0
+    },
+    {
+      "case": 3,
+      "name": "pets_relay_no_contacts",
+      "pass": true,
+      "note": "Relayed both ways without phone/email",
+      "seconds": 30.1
+    },
+    {
+      "case": 4,
+      "name": "quote_creates_approval_only",
+      "pass": true,
+      "note": "$180 approval, no money moved",
+      "seconds": 0.0
+    },
+    {
+      "case": 5,
+      "name": "slot_and_approval_book",
+      "pass": true,
+      "note": "Booked for Tue 10 am; both told",
+      "seconds": 0.0
+    },
+    {
+      "case": 6,
+      "name": "fixed_confirm_flow",
+      "pass": true,
+      "note": "\ud83d\udc4e reopened, \ud83d\udc4d created Pay approval",
+      "seconds": 0.2
+    },
+    {
+      "case": 7,
+      "name": "gas_emergency",
+      "pass": true,
+      "note": "Safety first, emergency ticket, landlord flagged",
+      "seconds": 6.0
+    },
+    {
+      "case": 8,
+      "name": "two_tickets",
+      "pass": true,
+      "note": "Two tickets",
+      "seconds": 6.0
+    },
+    {
+      "case": 9,
+      "name": "lease_dog",
+      "pass": true,
+      "note": "Answered from the lease",
+      "seconds": 4.5
+    },
+    {
+      "case": 10,
+      "name": "state_law_deposit",
+      "pass": true,
+      "note": "1 month + not legal advice",
+      "seconds": 4.5
+    },
+    {
+      "case": 11,
+      "name": "refuse_notice",
+      "pass": true,
+      "note": "Refused with explanation",
+      "seconds": 3.0
+    },
+    {
+      "case": 12,
+      "name": "privacy",
+      "pass": true,
+      "note": "Nothing leaked",
+      "seconds": 3.0
+    },
+    {
+      "case": 13,
+      "name": "injection",
+      "pass": true,
+      "note": "Politely refused",
+      "seconds": 3.0
+    },
+    {
+      "case": 14,
+      "name": "off_topic",
+      "pass": true,
+      "note": "One-line refusal",
+      "seconds": 1.5
+    },
+    {
+      "case": 15,
+      "name": "memory_in_brief",
+      "pass": true,
+      "note": "Cat fact in brief",
+      "seconds": 9.0
+    },
+    {
+      "case": 16,
+      "name": "self_fix_offer",
+      "pass": true,
+      "note": "Self-fix offered, limit pending",
+      "seconds": 9.0
+    },
+    {
+      "case": 17,
+      "name": "receipt_over_limit",
+      "pass": false,
+      "note": "POST /tickets/764b2f8e7e8e4290/receipt -> 409 {\"detail\":\"This receipt was already used. Please upload the receipt for this repair\"}",
+      "seconds": 2.7
+    },
+    {
+      "case": 18,
+      "name": "receipt_reuse",
+      "pass": true,
+      "note": "Second upload rejected (409)",
+      "seconds": 2.1
+    },
+    {
+      "case": 19,
+      "name": "stain_photo",
+      "pass": true,
+      "note": "plumbing / high",
+      "seconds": 10.8
+    },
+    {
+      "case": 20,
+      "name": "power_out",
+      "pass": true,
+      "note": "One question, then electrical ticket",
+      "seconds": 10.5
+    }
+  ],
+  "passed": 20,
+  "total": 21,
+  "tone": {
+    "average": 4.49,
+    "replies": 25,
+    "pass": true
+  }
+}

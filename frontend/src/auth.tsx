@@ -38,10 +38,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     if (!session.token) { setMe(null); return; }
     try {
-      setMe(await api<Me>("/auth/me"));
+      const m = await api<Me>("/auth/me");
+      session.setMedia((m as any).media_token);
+      setMe(m);
     } catch (e: any) {
       if (e.status === 401) await clear();
-      else if (e.status === 403 && session.actAs) { session.setActAs(null); await storage.removeItem(ACT_KEY); setMe(await api<Me>("/auth/me")); }
+      else if (e.status === 403 && session.actAs) { session.setActAs(null); await storage.removeItem(ACT_KEY); const m = await api<Me>("/auth/me"); session.setMedia((m as any).media_token); setMe(m); }
     }
   }, [clear]);
 
