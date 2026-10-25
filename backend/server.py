@@ -1037,8 +1037,9 @@ async def sample_reset(user=Depends(get_user)):
 async def sample_people(user=Depends(get_user)):
     need(user, "landlord")
     owners = [user["id"]]
-    if await shared_demo_on():
-        owners += [a for a in await admin_ids() if a != user["id"]]
+    s = await db.app_settings.find_one({"key": "shared_demo"}, NF)
+    if s and s.get("on") and s.get("by") and s["by"] != user["id"]:
+        owners = [s["by"]]  # only the sharing admin's people, so names aren't duplicated
     out = []
     for owner in owners:
         async for u in db.users.find({"is_sample": True, "sample_owner_id": owner}, NF):

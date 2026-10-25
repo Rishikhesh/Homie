@@ -60,7 +60,7 @@ def test_friend_acts_as_admin_hank_only_while_on(admin):
     people = requests.get(f"{B}/sample/people", headers=FRIEND).json()
     shared = [p for p in people if p["shared"]]
     assert admin["hank"] in [p["id"] for p in shared]
-    assert any(not p["shared"] for p in people), "friend still sees their own sample people"
+    assert shared and all(p["shared"] for p in people), "friend sees only the shared demo people"
 
     assert requests.post(f"{B}/admin/shared-demo", json={"on": False}, headers=admin["h"]).status_code == 200
     assert me().status_code == 403

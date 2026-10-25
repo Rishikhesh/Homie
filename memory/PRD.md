@@ -112,5 +112,5 @@ Note: app renamed Homi → Homi (June 2026).
 ## Shared demo admin toggle — June 2026 (tests/test_shared_demo.py)
 - ADMIN_EMAILS env (backend/.env: rishiyashvanth@gmail.com, turzobose@gmail.com). /auth/me → is_admin.
 - db.app_settings {key:"shared_demo", on}. GET/POST /api/admin/shared-demo (POST admin-only).
-- On: other landlords may X-Act-As admins' sample people; /sample/people adds them with shared=true. Off: own sample people only. DEMO_MODE unchanged.
+- On: other landlords see ONLY the sharing admin's (app_settings.by) sample people in /sample/people (shared=true), no duplicates; X-Act-As allowed for admins' samples. Off: own sample people only. DEMO_MODE unchanged.
 - Settings → "Admin · Shared demo" switch (src/SharedDemoSwitch.tsx), shown only to admins.
