@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, TextInput, View } from "react-native";
+import { FlatList, Pressable, Switch, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -10,7 +10,10 @@ import { AgentMark, Chip, ChipRow, FileImage, Ionicons, StatusPill, Txt, statusL
 import { PhotoButtons, PhotoStrip } from "@/src/inputs";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import { useAuth } from "@/src/auth";
-import { MicButton, SpeakButton, stopSpeaking } from "@/src/voice";
+import { MicButton, SpeakButton, speak, stopSpeaking } from "@/src/voice";
+import { storage } from "@/src/utils/storage";
+
+const HANDS_FREE_KEY = "rw_hands_free";
 
 function SlotCard({ ticketId, role }: { ticketId: string; role: string }) {
   const { data: t, reload } = useLive<any>(() => api(`/tickets/${ticketId}`), 5000, [ticketId]);
@@ -111,18 +114,52 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
   const canWrite = data?.can_write;
   useEffect(() => { listRef.current?.scrollToOffset({ offset: 0, animated: true }); }, [msgs.length]);
 
-  const send = async (t?: string) => {
+  // Hands-free: spoken messages send at once, and the reply that follows is read aloud.
+  const [handsFree, setHandsFree] = useState(false);
+  const waitingFor = useRef<Set<string> | null>(null); // message ids seen when we sent; null = not waiting
+  useEffect(() => { storage.getItem(HANDS_FREE_KEY, false).then((v) => setHandsFree(!!v)); }, []);
+  const toggleHandsFree = (v: boolean) => {
+    setHandsFree(v); storage.setItem(HANDS_FREE_KEY, v);
+    if (!v) { waitingFor.current = null; stopSpeaking(); }
+  };
+  useEffect(() => {
+    const seen = waitingFor.current;
+    if (!seen || busy) return;
+    const reply = msgs.find((m: any) => !seen.has(m.id) && m.role !== "user" && m.role !== "system" && m.text); // first reply after the spoken message
+    if (!reply) return;
+    waitingFor.current = null;
+    speak(reply.id, () => toast("Couldn't read the reply aloud. Tap the speaker to try again", "error")).catch(() => {});
+  }, [data, busy, toast]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const send = async (t?: string, spoken = false) => {
     const body = (t ?? text).trim();
     if (!body && !atts.length) return;
     setSending(true);
+    if (spoken) waitingFor.current = new Set(msgs.map((m: any) => m.id));
     try {
       await api(`/threads/${threadId}/messages`, { body: { text: body, attachments: atts } });
       setText(""); setAtts([]); reload();
-    } catch (e: any) { toast(e.message, "error"); } finally { setSending(false); }
+    } catch (e: any) { waitingFor.current = null; toast(e.message, "error"); } finally { setSending(false); }
+  };
+  const onSpoken = (t: string) => {
+    if (handsFree) send(text.trim() ? `${text.trim()} ${t}` : t, true);
+    else setText((cur) => (cur.trim() ? `${cur.trim()} ${t}` : t));
   };
 
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }} keyboardVerticalOffset={0}>
+      {canWrite ? (
+        <Pressable testID="hands-free-row" accessibilityRole="switch" accessibilityState={{ checked: handsFree }} onPress={() => toggleHandsFree(!handsFree)}
+          style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 48, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderBottomWidth: 0.5, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
+          <Ionicons name={handsFree ? "headset" : "headset-outline"} size={20} color={handsFree ? colors.brandPrimary : colors.muted} />
+          <View style={{ flex: 1 }}>
+            <Txt v="label">Hands-free</Txt>
+            <Txt v="small">{handsFree ? "Speak, it sends, and the reply is read aloud" : "Turn on to talk and listen without typing"}</Txt>
+          </View>
+          <Switch testID="hands-free-switch" accessibilityLabel="Hands-free mode" value={handsFree} onValueChange={toggleHandsFree}
+            trackColor={{ true: colors.brandPrimary, false: colors.surfaceTertiary }} />
+        </Pressable>
+      ) : null}
       <FlatList
         ref={listRef}
         testID="chat-messages"
@@ -154,7 +191,7 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
           {atts.length ? <View style={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.sm }}><PhotoStrip ids={atts} size={56} onRemove={(id) => setAtts(atts.filter((x) => x !== id))} /></View> : null}
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: quickReplies.length ? 0 : spacing.sm }}>
             <PhotoButtons compact testID="chat-photo" onUploaded={(id) => setAtts((a) => [...a, id])} />
-            <MicButton disabled={busy} onText={(t) => setText((cur) => (cur.trim() ? `${cur.trim()} ${t}` : t))} />
+            <MicButton disabled={busy} onText={onSpoken} />
             <TextInput testID="chat-input" value={text} onChangeText={setText} placeholder="Message Rentwise" placeholderTextColor={colors.muted} multiline
               style={{ flex: 1, minHeight: 44, maxHeight: 120, borderRadius: 22, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, backgroundColor: colors.surfaceTertiary, color: colors.onSurface, fontFamily: fonts.regular, fontSize: 16 }} />
             <Pressable testID="chat-send-button" accessibilityLabel="Send" onPress={() => send()} disabled={busy || (!text.trim() && !atts.length)}

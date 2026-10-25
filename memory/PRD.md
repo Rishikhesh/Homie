@@ -71,3 +71,4 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Rentwise
 ## Voice in chat (June 2026) — DONE, tested (iteration_11 + fixes)
 - Read aloud (Emergent TTS, tts-1 "coral", cached) on agent replies; tap-to-talk mic (Emergent STT gpt-4o-mini-transcribe) fills the message box.
 - Fixes after testing: audio format detected from file bytes (web webm / phone m4a), unclear audio returns friendly 422, read-aloud permission matches chat read rules, failed playback shows toast, icon-only send button for wider message box.
+- Hands-free mode (DONE, iteration_12): switch at top of chat (remembered). When on, spoken messages send automatically and the first Rentwise reply after them is read aloud.

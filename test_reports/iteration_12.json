@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only test of the Hands-free Voice Conversation Mode (src/chat.tsx + src/voice.tsx) at 375x667 via Expo web preview. All 6 requested areas passed. 1) hands-free-switch shows at the top of tenant /chat and landlord /thread/<own id>. It is absent on a read-only thread (landlord viewing the tenant thread: no switch and no chat-input). The subtitle changes 'Turn on to talk and listen without typing' <-> 'Speak, it sends, and the reply is read aloud', and the headset icon fills when on. 2) After toggling, localStorage rw_hands_free='true'; after a reload the switch is still checked and the ON subtitle shows. 3) Hands-free ON (getUserMedia faked with an oscillator stream, fetch for /api/voice/transcribe MOCKED to return text): mic tap -> 'Stop recording' -> tap again -> the message sends without tapping Send (chat-input empty, user bubble shown) -> the agent reply arrives -> GET /api/voice/tts/<replyId>.mp3 fires automatically (exactly 1 request, for the agent reply id) -> speak-<replyId> shows aria-label 'Stop reading' (stop-circle icon); tapping it changes it back to 'Read aloud'. Checked on tenant (fast FAQ reply, ~2.6s) and landlord (LLM reply, ~21s). 4) Hands-free OFF: the transcript fills chat-input ('When is rent due?'), the message count doesn't change and no TTS request fires. 5) Cancel: thread GETs were delayed 5s, then the switch was turned off during the wait. The message still sent, the reply arrived, 0 TTS requests fired and no speaker was in the stop state. 6) Regression: chat-send-button is 44x44, icon-only, aria-disabled when empty. Typed send works (input clears, reply arrives) and does not auto-read even with hands-free ON. The manual speaker plays (1 TTS request, 'Stop reading'). No pageerrors and no console errors/warnings in this run. Unmocked web STT with a fake tone returned 200 (text empty or unclear), and in hands-free mode nothing was sent (correct). Backend was not retested, as requested.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Chat hands-free bar", "issues": ["On web the Switch hit area is only 40x20 (below 44x44), and only the Switch toggles; tapping the 'Hands-free' label or subtitle does nothing. Consider making the whole row a Pressable with accessibilityRole='switch' (the native Switch is also ~51x31)."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_12.json"],
+  "action_items": [
+    "Optional: make the whole hands-free row tappable (bigger touch target) instead of only the 40x20 Switch.",
+    "Optional: the auto-read effect (chat.tsx:125-132) reads the LAST new non-user message after busy clears. If the agent posts several messages for one turn, only the last is read. Any unrelated agent message that lands while waiting would also be read. Consider reading the first new agent message after the user's spoken message instead."
+  ],
+  "critical_code_review_comments": [
+    "chat.tsx:138 builds waitingFor from msgs at send time, and the error path resets it (line 142); the toggle-off path resets it and stops speech (line 123). Logic is sound and matches the tests.",
+    "MicButton.start calls stopSpeaking(), so starting to talk interrupts narration. Good.",
+    "Chat unmount or threadId change calls stopSpeaking (line 110), and waitingFor is per component, so a reply that arrives after leaving the screen is not read.",
+    "No deprecated Expo packages: expo-audio is used, not expo-av. The old expo-router/unstable-native-tabs warning no longer appears in the code."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (per request)", "frontend": "100% (6/6 feature areas)"},
+  "seed_data_creation": "Created TEST_-prefixed chat messages in the tenant (Tom) thread 6b628bb2ad854d25 and the landlord thread 1fb5cedb9c0a4883. Reset localStorage rw_hands_free to false at the end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Mocking approach that works: page.add_init_script that wraps window.fetch to intercept '/voice/transcribe' and fakes navigator.mediaDevices.getUserMedia with an AudioContext oscillator via MediaStreamDestination. Track TTS with page.on('request') filtering '/voice/tts/'. The stop state is aria-label='Stop reading' on speak-<id>. To test cancel, delay GET /api/threads/<id> with page.route (regex .*/api/threads/[0-9a-f]+). Landlord own thread is 1fb5cedb9c0a4883 and tenant Tom's thread is 6b628bb2ad854d25 (read-only for the landlord)."
+}

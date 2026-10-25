@@ -22,6 +22,15 @@ export function stopSpeaking() {
   setPlaying(null);
 }
 
+/** Read one agent reply aloud; replaces whatever is playing. */
+export async function speak(messageId: string, onFail?: () => void) {
+  await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+  player.replace({ uri: authedUrl(`/voice/tts/${messageId}.mp3`) });
+  failListener = onFail || null;
+  player.play();
+  setPlaying(messageId);
+}
+
 /** Play button on an agent reply (text to speech). */
 export function SpeakButton({ messageId }: { messageId: string }) {
   const { colors } = useTheme();
@@ -34,11 +43,7 @@ export function SpeakButton({ messageId }: { messageId: string }) {
     if (on) { stopSpeaking(); return; }
     setLoading(true);
     try {
-      await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
-      player.replace({ uri: authedUrl(`/voice/tts/${messageId}.mp3`) });
-      failListener = () => toast("Couldn't read this aloud. Tap to try again", "error");
-      player.play();
-      setPlaying(messageId);
+      await speak(messageId, () => toast("Couldn't read this aloud. Tap to try again", "error"));
     } catch { toast("Couldn't read this aloud. Tap to try again", "error"); setPlaying(null); } finally { setLoading(false); }
   };
   return (
