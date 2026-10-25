@@ -1,0 +1,41 @@
+{
+  "summary": "Tested Plaid Transfer rent payments end to end (backend via the public URL, UI at a 375x667 viewport). I found one CRITICAL bug and fixed it. Bank pay failed with 402 'Your bank said no: not enough money' because the default Plaid sandbox checking account only has $100 available and rent is $1,200 (Plaid returned NSF). I changed transfers.py connect() to use a Plaid custom sandbox user with a $25,000 checking balance. Mask (0000) and name are unchanged. After the fix: tenant connect, disconnect and reconnect work in the UI (success burst, '••0000'). Landlord Payouts connect and disconnect work. The confirm sheet says 'Bank transfer through Plaid ... Test money only.' Pay now shows the toast 'Sent from First Platypus Bank (test) ••0000 to Jordan', the October row turns Paid and the receipt PDF returns 200. The landlord bank feed shows 'Rent · Matched to rent · Plaid transfer'. /api/bank/transfers shows status paid_out with debit_id and credit_id. The error paths return the right 409/403 messages, no access tokens are leaked, and the simulated pay with no bank still works. A UI bug remains: right after connecting a bank, the Pay button and confirm sheet are stale and would send a simulated payment until the screen is reloaded.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/rent/pay (method=bank)", "issue": "FIXED BY TESTER: 402 NSF on every rent payment. The default sandbox First Platypus checking account has $100 available, which is less than the $1,200 rent. Fix: in transfers.py connect(), /sandbox/public_token/create now passes options.override_username='user_custom' and override_password=json(TEST_ACCOUNT) (checking, starting_balance 25000, mask 0000). Re-tested: paid_out.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "transfers.charge()", "issue": "The transfer record is inserted with status 'started' before the debit is authorized. If the debit is declined or Plaid errors (402/502), the record stays 'started' forever and appears in GET /api/bank/transfers (2 orphan records were seen). It should be marked 'failed' (with the error) in an except around the debit."},
+      {"endpoint": "pay_rent()", "issue": "If anything fails after charge() succeeds (bank_txns insert or auto_match), the lock is released and the error is re-raised. The tenant's money has moved but no payment is recorded, so a retry would charge them again. Plaid idempotency is also defeated because the key gets a random uuid suffix."},
+      {"endpoint": "GET /api/receipts/{pid}.pdf", "issue": "The footer always says 'Simulated payment recorded by Doorman.', even when payment.source == 'plaid_transfer'."},
+      {"endpoint": "POST /api/bank/disconnect", "issue": "Only deletes the db link and never calls Plaid /item/remove. Also has no role check (harmless)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PayButton (src/pay.tsx) + BankCard (src/bank.tsx)", "issue": "Right after tapping Connect bank, pay-rent-button still reads 'Pay rent $1,200' and the pay-confirm sheet says 'Simulated payment. No real money moves.' Pay now then sends method 'sim', not 'bank'. The cause: PayButton and BankCard each call useBank() (useLive, no polling), and BankCard's reload() only refreshes its own copy. It only shows 'from ••0000' after a reload or remount. The same staleness affects the PayButton on the Home tab and in chat cards.", "testID": "pay-rent-button", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_transfers_flow.py", "/app/backend/tests/test_transfers.py", "/app/test_reports/pytest/iter17_transfers.xml"],
+  "action_items": [
+    "HIGH: Share the bank state between BankCard and PayButton. Options: a shared store or context, an onChange callback from BankCard that triggers bank.reload() in PayButton, or re-fetch /bank/me when the pay sheet opens. Then the button and sheet switch to 'from ••0000' / Plaid right after connecting, and Pay sends method 'bank'.",
+    "Review and keep the tester fix in /app/backend/transfers.py (custom sandbox user with a $25k balance). Without it every rent payment over $100 is declined NSF.",
+    "Mark transfers whose debit fails as status 'failed' (with the error) so they don't stay 'started'.",
+    "Make pay_rent safe when recording fails after the money has moved: keep the lock and record the payment, or reconcile from the transfer record.",
+    "Receipt PDF footer: say 'Plaid bank transfer (test money)' when source is plaid_transfer."
+  ],
+  "critical_code_review_comments": [
+    "transfers.py: the idempotency_key has a random uuid suffix, so Plaid idempotency never applies across retries.",
+    "money.py overview/bank still report 'connected' from user.bank_connected (the older feed flow), separate from bank_links (payouts). Two notions of 'bank connected' could confuse users."
+  ],
+  "updated_files": ["/app/backend/transfers.py", "/app/backend/tests/test_transfers_flow.py"],
+  "success_rate": {"backend": "100% (11/11 after fix; before the fix the one-tap transfer failed with 402)", "frontend": "90% (all flows work; stale bank state after connect)"},
+  "seed_data_creation": "Ran POST /api/sample/reset + backend restart several times. The final state is freshly re-seeded: Tom has $1,200 October rent due and no bank; the landlord payout bank is connected.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Server date is 2026-10. After a reset only Tom (test-tenant-token) has rent due; Maria has nothing due. Run the pytest files with -n 0 (xdist is on by default and these tests share state, so they race). test_transfers.py pays Tom's rent, so the 409 tests in test_transfers_flow.py skip when run after it; run flow first or reset in between. Web route URLs: /payments (tenant), /money (landlord).",
+  "rca_of_issue": "NSF: Plaid sandbox /transfer/authorization/create declines with NSF when the amount is more than the account's available balance. The default sandbox user's checking available balance is $100. The main agent's earlier probe likely used a small amount. Verified with a direct probe: the custom user (starting_balance 25000) is approved for $1,200, and the full UI flow then reaches paid_out."
+}

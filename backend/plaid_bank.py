@@ -126,6 +126,7 @@ async def sync_item(item):
                 continue
             txn = {"id": tid, "landlord_id": item["landlord_id"], "date": f"{t.get('date')}T00:00:00+00:00", "amount": round(-t["amount"], 2),
                    "sender_name": t.get("merchant_name") or t.get("name") or "Deposit", "memo": t.get("name") or "", "status": "new", "payment_id": None, "source": "plaid"}
+            txn["category"] = await categorize(txn)
             try:
                 await db.bank_txns.insert_one(dict(txn))
             except Exception:  # noqa: BLE001 — unique id: already imported
@@ -139,6 +140,25 @@ async def sync_item(item):
             await db.bank_txns.delete_one({"id": f"plaid:{rid.get('transaction_id') if isinstance(rid, dict) else rid}", "status": {"$ne": "matched"}})
     await db.plaid_items.update_one({"item_id": item["item_id"]}, {"$set": {"cursor": cursor, "last_sync": iso()}})
     return new
+
+
+async def categorize(txn):
+    """Sort an incoming deposit: rent · deposit · fee · other."""
+    import re
+    desc = (txn.get("sender_name", "") + " " + txn.get("memo", "")).casefold()
+    if re.search(r"\bdeposit\b|security", desc):
+        return "deposit"
+    if re.search(r"late|fee|pet|parking|laundry|key", desc):
+        return "fee"
+    async for u in db.units.find({"landlord_id": txn["landlord_id"]}, NF):
+        if abs(u["rent"] - txn["amount"]) < 0.01:
+            return "rent"
+        le = await db.leases.find_one({"unit_id": u["id"]}, NF)
+        if le and abs(float((le.get("terms") or {}).get("deposit") or 0) - txn["amount"]) < 0.01:
+            return "deposit"
+    if re.search(r"rent", desc) or await looks_like_rent(txn):
+        return "rent"
+    return "fee" if txn["amount"] < 100 else "other"
 
 
 async def looks_like_rent(txn):

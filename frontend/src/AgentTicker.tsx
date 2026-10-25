@@ -6,11 +6,11 @@ import { Ionicons, Txt } from "@/src/ui";
 import { radius, spacing, useTheme } from "@/src/theme";
 
 const TASKS = [
-  { icon: "water", work: "Finding a plumber for the sink…", done: "Hank booked · Thu 3 pm" },
-  { icon: "cash", work: "Checking this month's rent…", done: "Rent received · $1,200" },
-  { icon: "chatbubbles", work: "Answering Maria about parking…", done: "Replied in 8 seconds" },
-  { icon: "flame", work: "Gas smell reported — acting now…", done: "Safety steps sent · Plumber on the way" },
-  { icon: "document-text", work: "Preparing the lease…", done: "Lease signed by both" },
+  { icon: "water", work: "Finding a plumber…", done: "Hank booked · Thu 3 pm" },
+  { icon: "cash", work: "Checking rent…", done: "Rent in · $1,200" },
+  { icon: "chatbubbles", work: "Answering Maria…", done: "Replied in 8 sec" },
+  { icon: "flame", work: "Gas smell! Acting…", done: "Safe · plumber coming" },
+  { icon: "document-text", work: "Preparing lease…", done: "Lease signed" },
 ];
 
 export function AgentTicker() {
@@ -31,9 +31,9 @@ export function AgentTicker() {
         <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: done ? colors.goodSoft : colors.brandTertiary, alignItems: "center", justifyContent: "center" }}>
           <Ionicons name={t.icon as any} size={19} color={done ? colors.good : colors.brandPrimary} />
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Txt v="caption" style={{ fontSize: 12 }}>DOORMAN · {done ? "DONE" : "WORKING"}</Txt>
-          <Txt v="label" numberOfLines={1}>{done ? t.done : t.work}</Txt>
+          <Txt v="label" numberOfLines={1} style={{ flexShrink: 1 }}>{done ? t.done : t.work}</Txt>
         </View>
         {done ? <Ionicons testID="agent-ticker-done" name="checkmark-circle" size={22} color={colors.good} /> : <ActivityIndicator size="small" color={colors.brandPrimary} />}
       </Animated.View>

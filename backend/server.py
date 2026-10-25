@@ -14,6 +14,7 @@ from inspections import router as inspections_router, VIDEO_MAX_MB
 from voice import router as voice_router
 from cards import router as cards_router
 from calls import router as calls_router
+from transfers import router as transfers_router
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -1019,6 +1020,7 @@ app.include_router(inspections_router)
 app.include_router(voice_router)
 app.include_router(cards_router)
 app.include_router(calls_router)
+app.include_router(transfers_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

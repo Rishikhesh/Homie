@@ -6,6 +6,7 @@ import { api, money, ago } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { BigButton, Card, Ionicons, Chip, ChipRow, ConfirmSheet, Divider, EmptyState, ErrorState, Field, LargeHeader, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
 import { radius, spacing, useTheme } from "@/src/theme";
+import { BankCard } from "@/src/bank";
 import { BigNumber, IconRow, Status } from "@/src/visual";
 import { KIND_ICON, kindColor, statusOf } from "@/src/status";
 
@@ -113,6 +114,8 @@ export default function Money() {
             {!d.properties.length ? <EmptyState testID="money-empty" icon="leaf-outline" title="No rent yet" /> : null}
           </Section>
 
+          <Section title="Payouts" testID="payout-section"><BankCard role="landlord" testID="payout-bank" /></Section>
+
           <Section title="Bank feed" testID="bank-section" right={<StatusPill label={plaid.data?.items?.length ? "Plaid Sandbox" : "Simulated"} tone={plaid.data?.items?.length ? "brand" : "neutral"} />}>
             {!bank.data?.connected ? (
               <EmptyState testID="bank-connect-empty" icon="card-outline" title="Connect your bank" action="Connect bank" onAction={() => setSheet("connect")} />
@@ -146,7 +149,7 @@ export default function Money() {
                 {bank.data.feed.slice(0, 12).map((t: any, i: number) => (
                   <View key={t.id}>{i ? <Divider /> : null}
                     <Row style={{ justifyContent: "space-between" }}>
-                      <View style={{ flex: 1 }}><Txt v="body">{t.sender_name}</Txt><Txt v="small">{t.date.slice(0, 10)} · {t.status === "matched" ? "Matched to rent" : t.status === "history" ? "Imported from bank" : "Not rent"}{t.source === "plaid" ? " · Plaid" : ""}</Txt></View>
+                      <View style={{ flex: 1 }}><Txt v="body">{t.sender_name}</Txt><Txt v="small">{t.date.slice(0, 10)} · {t.category ? `${t.category[0].toUpperCase()}${t.category.slice(1)} · ` : ""}{t.status === "matched" ? "Matched to rent" : t.status === "history" ? "Imported from bank" : "Not rent"}{t.source === "plaid" ? " · Plaid" : t.source === "plaid_transfer" ? " · Plaid transfer" : ""}</Txt></View>
                       <Txt v="label">{money(t.amount)}</Txt>
                     </Row>
                   </View>

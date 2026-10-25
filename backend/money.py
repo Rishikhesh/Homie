@@ -141,18 +141,27 @@ async def pay_rent(body: dict, user=Depends(get_user)):
         if not await db.locks.find_one_and_update({"key": key, "expires_at": {"$lt": iso()}}, {"$set": {"expires_at": lock_until}}):
             raise HTTPException(409, "This payment is already being processed")
     try:
+        source, memo, xfer = "app_sim", f"Doorman transfer from {user['name']}", None
+        if body.get("method") == "bank":  # real Plaid Transfer (sandbox): money moves before we record it
+            from transfers import charge
+            xfer = await charge(user, unit, float(amt), key, kind)
+            source, memo = "plaid_transfer", f"Plaid transfer from {user['name']} · {xfer['from']}"
         txn = {"id": uid(), "landlord_id": unit["landlord_id"], "date": iso(), "amount": float(amt), "sender_name": user["name"],
-               "memo": f"Doorman transfer from {user['name']}", "status": "new", "payment_id": None, "source": "app_sim"}
+               "memo": memo, "status": "new", "payment_id": None, "source": source, "category": "deposit" if kind == "deposit" else "rent",
+               "transfer_id": xfer["id"] if xfer else None}
         await db.bank_txns.insert_one(dict(txn))
         if kind == "deposit":
             pay = await record_payment(unit, amt, period, "app_sim", "deposit", txn["id"])
             await db.bank_txns.update_one({"id": txn["id"]}, {"$set": {"status": "matched", "payment_id": pay["id"]}})
         else:
             pay = await auto_match(txn)
+        if xfer and pay:
+            await db.transfers.update_one({"id": xfer["id"]}, {"$set": {"payment_id": pay["id"]}})
+            await db.payments.update_one({"id": pay["id"]}, {"$set": {"source": "plaid_transfer", "transfer_id": xfer["id"]}})
     except Exception:
         await db.locks.delete_one({"key": key})
         raise
-    return {"ok": True, "payment": pay}
+    return {"ok": True, "payment": pay, "transfer": {k: xfer[k] for k in ("id", "status", "from", "to")} if xfer else None}
 
 
 @router.get("/receipts/{pid}.pdf")
@@ -166,7 +175,7 @@ async def receipt_pdf(pid: str, user=Depends(get_media_user)):
     lines = [f"Received from: {t['name']}", f"Home: {unit['label']}, {prop['address']}, {prop['city']} {prop['state']}",
              f"For: {'Security deposit' if p['kind'] == 'deposit' else month_name(p['period']) + ' ' + p['period'][:4] + ' rent'}",
              f"Amount: {money(p['amount'])}", f"Date: {p['date'][:10]}", f"Reference: {p['id']}"]
-    b = await asyncio.to_thread(pdf_bytes, "Rent receipt", lines, "Simulated payment recorded by Doorman.")
+    b = await asyncio.to_thread(pdf_bytes, "Rent receipt", lines, "Paid by bank transfer through Plaid (sandbox test money)." if p.get("source") == "plaid_transfer" else "Simulated payment recorded by Doorman.")
     return Response(b, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename=receipt-{pid}.pdf"})
 
 

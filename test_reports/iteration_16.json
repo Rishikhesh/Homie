@@ -1,0 +1,29 @@
+{
+  "summary": "Tested the login screen layout fix in the browser, logged out with localStorage cleared. Sizes: 393x852, 390x844, 375x667 and 360x740, each in light and dark (prefers-color-scheme), plus 320x568 and 430x932. Everything fits at every size: the logo row, login-hero, the title, the subtitle, agent-ticker, login-google-button and 'For landlords, tenants and handymen'. Bottom of the bottom text vs viewport: 828/852, 820/844, 643/667, 716/740, 544/568, 908/932. Nothing is clipped vertically and there is no vertical scroll. The title is 26px under 760 px tall and 30px above. The hero is 361/358/329/328/230/398 px, so it shrinks with the free space instead of pushing content down. Its 7 SVGs render and the orbit-token and bob transforms change over time. The ticker went through all 5 tasks at 360 px (WORKING spinner, then DONE check) with no ellipsis on any text. Tapping login-google-button (345x50) goes to Google OAuth; the OAuth flow itself was not tested, as asked. Jev playbook test test_jev_playbook.py passes (1/1). Two minor issues: (1) the page can be scrolled sideways by 90 px on web, (2) the subtitle contrast is low in light mode. No deprecated Expo packages detected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "login-screen decorative orb", "issue": "On web the page can be scrolled sideways: window.scrollTo(200,0) gives scrollX=90 and document scrollWidth is 483 at a 393 px viewport. Cause: the top-right background orb (width 260, right:-90) spills past the right edge, and the root login-screen View has no overflow:'hidden' (html overflow-x is visible). Users of the mobile browser could pan the screen sideways. Reference: /app/frontend/app/login.tsx:23,26", "testID": "login-screen", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "login (light mode)", "issues": ["Subtitle 'An AI doorman for your homes...' uses colors.muted rgb(142,142,147) on about rgb(249,249,248). That is about 3.1:1 contrast, below WCAG AA 4.5:1 for 16px body text. Dark mode is fine. Reference: /app/frontend/app/login.tsx:43"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_jev_playbook.py", "/app/test_reports/pytest/pytest_jev_iter16.xml"],
+  "action_items": [
+    "Add overflow: 'hidden' to the root login-screen View in app/login.tsx so the off-screen decorative orb cannot make the page scroll sideways on web.",
+    "Optional: use a darker secondary text color for the login subtitle in light mode (for example onSurfaceTertiary rgb(58,58,60)) to reach 4.5:1 contrast."
+  ],
+  "critical_code_review_comments": [
+    "login.tsx: the hero is Math.min(width-32, space, 400), but the content column has 24 px padding on each side. The hero is therefore up to 16 px wider than the text column (for example 361 vs 345). It stays inside the viewport and is centered, so this is fine.",
+    "login.tsx: the first render has space=0, so the hero mounts only after onLayout runs. This is expected, and FadeIn hides the pop-in."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (Jev playbook 1/1)", "frontend": "95%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login layout: measure bounding boxes with leaf-div text lookup ('For landlords, tenants and handymen'). Use page.emulate_media(color_scheme='dark') for dark mode; the theme follows useColorScheme. To detect ticker truncation, compare scrollWidth with clientWidth on the label div inside [data-testid=agent-ticker]. Tapping login-google-button redirects to accounts.google.com."
+}

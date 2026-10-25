@@ -89,3 +89,11 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 - Frontend: app/call/[id].tsx (ringing / hold-to-talk / type instead / hang up / landlord transcript), src/call/IncomingCallWatcher (3 s poll in handyman layout), ChoiceCards in welcome, profile, settings; "Prefers calls" label; missed-call label; timeline call rows → transcript.
 - Tests: tests/test_calls.py (15 pass). Eval: python -m evals.handyman_calls (5/5 pass).
 - Note: some older API tests fail only under parallel xdist (shared demo state); pass with -n0.
+
+## Plaid Transfer rent (sandbox) — June 2026
+- backend/transfers.py: /api/bank/connect (sandbox test bank, auth+transfer, tokens server-only), /bank/me, /bank/disconnect, /bank/transfers; charge(): ACH debit tenant → Plaid Ledger, simulate posted/settled/funds_available, ACH credit Ledger → landlord (payout_pending if credit fails).
+- /api/rent/pay {method:"bank"} runs the transfer before recording the payment (source plaid_transfer, transfer_id) → ledger, receipts, Money, tax summary.
+- Auto-sort deposits: plaid_bank.categorize() → rent/deposit/fee/other on bank_txns; shown in Money bank feed.
+- UI: src/bank.tsx BankCard (tenant Payments "Your bank", landlord Money "Payouts"), PayButton pays "from ••mask" when connected.
+- Tests: tests/test_transfers.py. User choices: test money only, tenant taps each month, record + auto-sort.
+- Fixes (iterations 17-18): shared bank store (Pay buttons update instantly), failed transfers marked failed, one Plaid idempotency key per attempt (retry after decline works), crash-after-debit reuse (no double charge), receipt wording for Plaid payments, disconnect removes the Plaid item, sandbox test user with a $25k balance (set up by the testing agent).

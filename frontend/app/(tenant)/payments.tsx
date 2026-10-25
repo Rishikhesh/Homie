@@ -9,6 +9,7 @@ import { PayButton } from "@/src/pay";
 import { BigNumber, DocTile, Status, StripCard } from "@/src/visual";
 import { statusOf } from "@/src/status";
 import { spacing, useTheme } from "@/src/theme";
+import { BankCard } from "@/src/bank";
 
 
 function StatementCard() {
@@ -42,6 +43,7 @@ export default function Payments() {
           ) : <StripCard kind="good" style={{ marginBottom: spacing.xl }} testID="all-paid-card"><Status kind="good" label="All paid" /></StripCard>}
           <StatementCard />
           {d.payment_details ? <Txt v="small" style={{ marginBottom: spacing.lg }}>Other ways to pay: {d.payment_details}</Txt> : null}
+          <Section title="Your bank" testID="tenant-bank-section"><BankCard role="tenant" testID="tenant-bank" /></Section>
           <Section title="Rent history" testID="ledger-section">
             <Card>
               {d.ledger.map((r: any, i: number) => (

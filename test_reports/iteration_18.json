@@ -1,0 +1,33 @@
+{
+  "summary": "Retested the iteration 17 fixes for Plaid Transfer rent payments, via the public URL and UI at 375x667. All the requested fixes work. 1) Shared bank store: on Payments, Connect bank immediately changes pay-rent-button to 'Pay rent $1,200 from ••0000' without a reload. The confirm sheet then says 'Bank transfer through Plaid from First Platypus Bank (test) ••0000', and the Home tab button updates too. After Disconnect, both buttons and the sheet return to 'Pay rent $1,200' / 'Simulated payment'. After reconnecting, Pay now showed the toast 'Sent from First Platypus Bank (test) ••0000 to Jordan', October turned Paid, and the transfer went to paid_out with debit_id, credit_id and payment_id. 2) Declined or errored debits are saved as 'failed' with the error; no 'started' orphans remain (both 402 NSF and 502 were checked). 3) A retry after a debit that went through but was never recorded reuses the existing transfer: same id, no new record. 4) The receipt PDF says 'Paid by bank transfer through Plaid (sandbox test money).' 5) Disconnect returns {connected:false}, and Plaid /item/get on the old access token now errors, so the item was removed. The requested pytest run passed: test_transfers_flow.py + test_transfers.py, -n 0, 11/11. NEW HIGH bug: after a declined bank payment, a retry for the same month can never succeed. The Plaid idempotency key 'd-pay:<tenant>:<period>:<n>' is stable per period. Reconnecting the bank gives new access_token/account_id params, so Plaid returns TRANSFER_IDEM_KEY_PARAMS_MISMATCH and the user sees 502 'Bank connection error: existing idempotency_key found with different params'. With the same bank, Plaid just replays the old declined authorization, so the tenant keeps getting 402 even after adding money.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/rent/pay (method=bank) → transfers.charge/_auth_and_create", "issue": "After one declined/failed debit, the tenant can't pay that period by bank anymore. The idempotency_key f'd-{key}' (key=pay:<tenant>:<period>:<len(payment_ids)>) is reused for every attempt, including attempts after a 'failed' transfer. If the tenant reconnects, the params change (new access_token/account_id) and Plaid returns TRANSFER_IDEM_KEY_PARAMS_MISMATCH, which the user sees as 502. With the same account, Plaid replays the cached declined authorization, so it stays 402 forever. Reproduced: link a $100 account → 402 NSF → connect the $25k test bank → pay → 502 (backend log: 'plaid error /transfer/authorization/create TRANSFER_IDEM_KEY_PARAMS_MISMATCH').", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "transfers.charge()", "issue": "A record stuck at 'started' (crash mid-debit) is never reused and is never marked failed, so it stays 'started' forever. Only debited/paid_out/payout_pending records are reused."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_transfers.py", "/app/backend/tests/test_transfers_flow.py", "/app/backend/tests/test_transfers_retry.py", "/app/backend/tests/test_transfers_reuse.py", "/app/test_reports/pytest/iter18_transfers.xml", "/app/test_reports/pytest/iter18_retry.xml"],
+  "action_items": [
+    "HIGH: Scope the Plaid idempotency key to a single attempt, not just the period. Example: derive it from the transfer record id (f'd-{rec[\"id\"]}', f'c-{rec[\"id\"]}'). Reuse the same record (and so the same key) only when it is 'started', 'debited' or 'payout_pending' with no payment. Create a new record and key after a 'failed' one. Alternatively, add a count of failed attempts to the key. Then rerun tests/test_transfers_retry.py::test_retry_after_decline_pays; it should give paid_out.",
+    "Optional: map Plaid TRANSFER_IDEM_KEY_PARAMS_MISMATCH and similar errors to a friendly message instead of the raw 'Bank connection error: ...' 502 text."
+  ],
+  "critical_code_review_comments": [
+    "src/bank.tsx: the module-level `state` is shared across sessions. After a logout/login or landlord 'Try as Tom' (X-Act-As), the previous user's bank shows for a moment until refreshBank() finishes. Clear `state` on sign-out or role switch.",
+    "pay_rent still deletes the lock when recording fails after charge(). This is safe now because charge() reuses the debited transfer by key."
+  ],
+  "updated_files": ["/app/backend/tests/test_transfers_retry.py", "/app/backend/tests/test_transfers_reuse.py"],
+  "success_rate": {"backend": "93% (14/15: 11/11 requested suite + reuse 1/1 + retry file 3/4 passed before the receipt test was guarded with a skip; the failure is test_retry_after_decline_pays, the new HIGH bug; the receipt wording was verified separately on the UI payment)", "frontend": "100% (connect → button/sheet/Home update without reload, disconnect → simulated, pay by bank toast 'Sent from…')"},
+  "seed_data_creation": "Final state: freshly reset + backend restarted. Tom has $1,200 October rent due and no bank connected; the landlord payout bank is connected.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Each test file needs its own fresh state: POST /api/sample/reset (landlord) + `sudo supervisorctl restart backend` + POST /api/bank/connect (landlord). Run with -n 0. test_transfers_retry.py links a $100 sandbox account to Tom directly in Mongo (bank_links) to force a 402 NSF decline. test_transfers_reuse.py inserts a fake 'debited' transfer (id TEST_reuse_xfer) to simulate a crash after the debit. The uvicorn reloader restarts when files in backend/tests change.",
+  "rca_of_issue": "Plaid /transfer/authorization/create idempotency: the same idempotency_key with different params gives TRANSFER_IDEM_KEY_PARAMS_MISMATCH, and with the same params it returns the original authorization, including a declined one. The key in charge() is derived only from tenant/period/payment-count, which doesn't change after a failed attempt."
+}
