@@ -14,6 +14,7 @@ import { queryClient } from "@/src/query-client";
 import { AuthProvider, useAuth } from "@/src/auth";
 import { ToastProvider, Txt } from "@/src/ui";
 import { SuccessBurstHost } from "@/src/visual";
+import { IncomingCallWatcher } from "@/src/call/IncomingCallWatcher";
 import { useTheme, spacing } from "@/src/theme";
 
 LogBox.ignoreAllLogs(true);
@@ -26,7 +27,7 @@ function targetFor(me: any): string {
   if (u.role === "handyman" && !me.handyman) return "welcome";
   return `(${u.role})`;
 }
-const SHARED = ["ticket", "thread", "property", "handyman", "settings", "lease", "report", "rights", "accept", "statement", "inspection", "visual-qa"];
+const SHARED = ["ticket", "thread", "property", "handyman", "settings", "lease", "report", "rights", "accept", "statement", "inspection", "visual-qa", "call"];
 
 function Gate() {
   const { me, loading, actAs } = useAuth();
@@ -57,6 +58,7 @@ function Gate() {
       ) : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }} />
       <SuccessBurstHost />
+      {me?.user?.role === "handyman" ? <IncomingCallWatcher /> : null}
     </View>
   );
 }

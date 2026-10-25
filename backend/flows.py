@@ -85,13 +85,21 @@ async def offer_job(ticket, h, after_decline_of=None):
     ticket = await transition(ticket["id"], "finding_handyman", "offered", {"handyman_id": h["user_id"], "offered_at": iso(), "nudged": {}})
     jt = await job_thread(ticket, h["user_id"])
     await db.tickets.update_one({"id": ticket["id"]}, {"$set": {"job_thread_id": jt["id"]}})
-    facts = [f["text"] async for f in db.memory_facts.find({"scope": "tenant", "scope_id": ticket["tenant_id"]}, NF)]
-    urgent = "URGENT — " if ticket["urgency"] == "emergency" else ""
-    brief = (f"{urgent}Hi {first(h['name'])}, new job in {prop['city']}: {ticket['title']}. {ticket['description']}"
-             + (f" Good to know: {'; '.join(facts)}." if facts else "")
-             + " Tap Accept to send a quote and 2–3 times, or Decline if you can't take it.")
-    await post(jt["id"], brief, cards=[{"type": "offer", "ticket_id": ticket["id"]}], attachments=ticket.get("photos") or [])
     note = await past_work_note(ticket, h["user_id"])
+    from calls import wants_call, start_call
+    call = None
+    if await wants_call(ticket, h):
+        try:
+            call = await start_call(ticket, h, jt)
+        except Exception as e:  # noqa: BLE001 — a broken call never blocks a repair
+            print("call start failed", e)
+    if call:
+        await timeline(ticket["id"], f"Calling {first(h['name'])}")
+        await activity(ticket["landlord_id"], f"Calling {first(h['name'])} about the {ticket['title'].lower()}", ticket["id"])
+        lead = f"{first(after_decline_of)} can't make it, so I'm calling {h['name']}{note} now." if after_decline_of else f"I'm calling {h['name']}{note} now about your {ticket['title'].lower()}."
+        await tell_tenant(ticket, lead)
+        return f"Calling {h['name']}{note} now."
+    await post_offer(ticket, h, jt["id"])
     await timeline(ticket["id"], f"Asked {h['name']} to take the job")
     await activity(ticket["landlord_id"], f"Asked {first(h['name'])} to fix the {ticket['title'].lower()}", ticket["id"])
     if after_decline_of:
@@ -99,6 +107,17 @@ async def offer_job(ticket, h, after_decline_of=None):
     else:
         await tell_tenant(ticket, f"I've asked {h['name']}{note}. ")
     return f"Offered the job to {h['name']}{note}."
+
+
+async def post_offer(ticket, h, thread_id, prefix=""):
+    """The text job offer card in the job chat."""
+    prop, _, _, _ = await ctx(ticket)
+    facts = [f["text"] async for f in db.memory_facts.find({"scope": "tenant", "scope_id": ticket["tenant_id"]}, NF)]
+    urgent = "URGENT — " if ticket["urgency"] == "emergency" else ""
+    brief = (f"{prefix}{urgent}Hi {first(h['name'])}, new job in {prop['city']}: {ticket['title']}. {ticket['description']}"
+             + (f" Good to know: {'; '.join(facts)}." if facts else "")
+             + " Tap Accept to send a price and 2–3 times, or Decline if you can't take it.")
+    await post(thread_id, brief, cards=[{"type": "offer", "ticket_id": ticket["id"]}], attachments=ticket.get("photos") or [])
 
 
 async def handyman_accept(ticket, hid, quote, slots):
@@ -146,6 +165,7 @@ async def handyman_decline(ticket, hid, reason="expired"):
     h = await handyman_doc(hid)
     await db.tickets.update_one({"id": ticket["id"]}, {"$addToSet": {"declined_by": hid}, "$push": {"missed": {"hid": hid, "reason": reason, "at": iso()}}})
     word = "didn't reply in time" if reason == "expired" else "declined"
+    await db.calls.update_many({"ticket_id": ticket["id"], "handyman_id": hid, "status": "ringing"}, {"$set": {"status": "missed", "ended_at": iso(), "outcome": "no_answer"}})
     await timeline(ticket["id"], f"{h['name']} {word}")
     await activity(ticket["landlord_id"], f"{first(h['name'])} {word} — finding the next handyman", ticket["id"])
     if reason == "expired":
@@ -428,11 +448,18 @@ async def tick():
     from core import DEMO, FOLLOWUP
     S = FOLLOWUP if DEMO else None
     cut = lambda normal: iso(now() - timedelta(seconds=S if S else normal))  # noqa: E731
-    async for t in db.tickets.find({"status": "offered", "offered_at": {"$lt": cut(7200)}}, NF):
+    async for t in db.tickets.find({"status": "offered", "$or": [{"offered_at": {"$lt": cut(7200)}}, {"urgency": "emergency", "offered_at": {"$lt": cut(900)}}]}, NF):
+        if await db.calls.find_one({"ticket_id": t["id"], "status": "active"}):
+            continue  # don't pull the job while they're on the phone
         try:
             await handyman_decline(t, t["handyman_id"], "expired")
         except Exception as e:  # noqa: BLE001
             print("expire fail", e)
+    try:
+        from calls import tick_calls
+        await tick_calls()
+    except Exception as e:  # noqa: BLE001
+        print("call tick fail", e)
     async for t in db.tickets.find({"status": "awaiting_tenant_time", "picked_slot": None, "proposed_at": {"$lt": cut(14400)}, "nudged.time": {"$ne": True}}, NF):
         await db.tickets.update_one({"id": t["id"]}, {"$set": {"nudged.time": True}})
         await tell_tenant(t, "Quick reminder — please pick a time for the visit so I can lock it in.", cards=[{"type": "choice_time", "ref_id": t["id"]}])

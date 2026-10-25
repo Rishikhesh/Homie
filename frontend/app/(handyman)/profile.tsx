@@ -6,6 +6,7 @@ import { useAuth } from "@/src/auth";
 import { TRADES, tradeLabel } from "@/src/constants";
 import { Avatar, BigButton, Card, Chip, Field, LargeHeader, Row, Screen, Section, Skeleton, TextButton, Txt, useToast } from "@/src/ui";
 import { spacing, useTheme } from "@/src/theme";
+import { CONTACT_CHOICES, ChoiceCards } from "@/src/call/ChoiceCards";
 
 export default function Profile() {
   const { me, signOut } = useAuth();
@@ -37,6 +38,10 @@ export default function Profile() {
         <Txt v="money" testID="earnings-month">{money(data.earnings_month)}</Txt>
         <Txt v="small">{data.jobs_done || 0} {data.jobs_done === 1 ? "job" : "jobs"} done · {money(data.earnings_total)} all time</Txt>
       </Card>
+      <Section title="How Rentwise contacts you" testID="contact-pref-section">
+        <ChoiceCards testIDPrefix="contact-pref" choices={CONTACT_CHOICES} value={data.contact_pref || "message"}
+          onChange={async (v) => { try { await api("/handyman/profile", { method: "PATCH", body: { contact_pref: v } }); toast(v === "call" ? "Rentwise will call you" : "Rentwise will message you"); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
+      </Section>
       <Section title="Trades">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
           {TRADES.map((t) => <Chip key={t} testID={`profile-trade-${t}`} label={tradeLabel(t)} selected={f.trades.includes(t)} onPress={() => setF({ ...f, trades: f.trades.includes(t) ? f.trades.filter((x: string) => x !== t) : [...f.trades, t] })} />)}

@@ -13,6 +13,7 @@ from plaid_bank import router as plaid_router
 from inspections import router as inspections_router, VIDEO_MAX_MB
 from voice import router as voice_router
 from cards import router as cards_router
+from calls import router as calls_router
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -300,7 +301,7 @@ async def my_handymen(user=Depends(get_user)):
     async for h in db.handymen.find({"user_id": {"$in": ids}}, NF):
         jobs = await db.tickets.count_documents({"landlord_id": user["id"], "handyman_id": h["user_id"], "status": "closed"})
         last = await db.tickets.find_one({"landlord_id": user["id"], "handyman_id": h["user_id"]}, NF, sort=[("created_at", -1)])
-        out.append({**hm_public(h), "jobs_for_you": jobs, "last_job": last["title"] if last else None})
+        out.append({**hm_public(h), "contact_pref": h.get("contact_pref", "message"), "jobs_for_you": jobs, "last_job": last["title"] if last else None})
     invites = [i async for i in db.invites.find({"landlord_id": user["id"], "kind": "handyman", "status": "pending"}, NF)]
     return {"handymen": out, "invites": invites}
 
@@ -375,7 +376,17 @@ async def hm_profile(user=Depends(get_user)):
     h = await db.handymen.find_one({"user_id": user["id"]}, NF) or {}
     start = period_of()
     paid = [t async for t in db.tickets.find({"handyman_id": user["id"], "status": "closed", "closed_at": {"$regex": f"^{start}"}}, NF)]
-    return {**h, "earnings_month": sum(t.get("paid_amount") or 0 for t in paid), "email": user["email"]}
+    return {**h, "contact_pref": h.get("contact_pref", "message"), "earnings_month": sum(t.get("paid_amount") or 0 for t in paid), "email": user["email"]}
+
+
+@api.patch("/handyman/profile")
+async def hm_profile_patch(body: dict, user=Depends(get_user)):
+    need(user, "handyman")
+    pref = body.get("contact_pref")
+    if pref not in ("message", "call"):
+        raise HTTPException(422, "Pick call or message")
+    await db.handymen.update_one({"user_id": user["id"]}, {"$set": {"contact_pref": pref}})
+    return {"ok": True, "contact_pref": pref}
 
 
 # ---------------- tickets ----------------
@@ -947,12 +958,18 @@ async def lease_pdf(lid: str, user=Depends(get_media_user)):
 # ---------------- settings / memory / sample ----------------
 @api.get("/settings")
 async def get_settings(user=Depends(get_user)):
-    return {"name": user["name"], "email": user["email"], "role": user["role"], "policies": user.get("policies") or [], "payment_details": user.get("payment_details", ""), "demo": DEMO}
+    return {"name": user["name"], "email": user["email"], "role": user["role"], "policies": user.get("policies") or [], "payment_details": user.get("payment_details", ""), "demo": DEMO,
+            "handyman_calls": bool(user.get("handyman_calls"))}
 
 
 @api.put("/settings")
 async def put_settings(body: dict, user=Depends(get_user)):
     upd = {k: body[k] for k in ("name", "policies", "payment_details") if k in body}
+    if "handyman_calls" in body:
+        need(user, "landlord")
+        if not isinstance(body["handyman_calls"], bool):
+            raise HTTPException(422, "handyman_calls must be true or false")
+        upd["handyman_calls"] = body["handyman_calls"]
     await db.users.update_one({"id": user["id"]}, {"$set": upd})
     return {"ok": True}
 
@@ -1007,6 +1024,7 @@ app.include_router(plaid_router)
 app.include_router(inspections_router)
 app.include_router(voice_router)
 app.include_router(cards_router)
+app.include_router(calls_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

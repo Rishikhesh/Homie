@@ -179,10 +179,10 @@ export default function TicketDetail() {
       <Section title="What happened" testID="ticket-timeline">
         <Card>
           {[...(t.timeline || [])].reverse().map((e: any, i: number) => (
-            <Row key={i} style={{ alignItems: "center", paddingVertical: 6 }}>
+            <Row key={i} style={{ alignItems: "center", paddingVertical: 6 }} testID={e.call_id ? `timeline-call-${e.call_id}` : undefined}>
               <Txt v="small" style={{ width: 64 }}>{ago(e.at)}</Txt>
-              <Ionicons name={icon(e) as any} size={18} color={colors.brandPrimary} />
-              <Txt v="body" style={{ flex: 1 }} numberOfLines={2}>{e.text}</Txt>
+              <Ionicons name={(/^Call(ed|ing)/.test(e.text) ? "call" : icon(e)) as any} size={18} color={colors.brandPrimary} />
+              <Txt v="body" style={{ flex: 1 }} numberOfLines={2} onPress={e.call_id && role !== "tenant" ? () => router.push(`/call/${e.call_id}`) : undefined}>{e.text}{e.call_id && role !== "tenant" ? " ›" : ""}</Txt>
             </Row>
           ))}
         </Card>

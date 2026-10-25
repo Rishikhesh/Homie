@@ -44,6 +44,7 @@ function CardView({ c, role, onAnswer }: { c: any; role: string; onAnswer?: (t: 
     case "receipt": return <LiveCard c={{ type: "repair", ref_id: c.ticket_id }} role={role as Role} />;
     case "payment_receipt": return <TextButton testID={`chat-receipt-${c.payment_id}`} icon="document-text-outline" label="View receipt (PDF)" onPress={() => WebBrowser.openBrowserAsync(authedUrl(`/receipts/${c.payment_id}.pdf`))} />;
     case "lease": return <TextButton testID="chat-open-lease" icon="document-text-outline" label="Open lease" onPress={() => router.push(`/lease/${c.lease_id}`)} />;
+    case "call": return <TextButton testID={`chat-call-${c.call_id}`} icon="call-outline" label="Call transcript ›" onPress={() => router.push(`/call/${c.call_id}`)} />;
     case "statement": return <TextButton testID={`chat-statement-${c.statement_id}`} icon="document-text-outline" label="Open move-out summary ›" onPress={() => router.push(`/statement/${c.statement_id}`)} />;
     case "inspection": return <TextButton testID={`chat-inspection-${c.inspection_id}`} icon="videocam-outline" label="Start the check ›" onPress={() => router.push(`/inspection/${c.inspection_id}`)} />;
     default: return LIVE_TYPES.includes(c.type) ? <LiveCard c={c} role={role as Role} onAnswer={onAnswer} /> : null;

@@ -7,6 +7,7 @@ import { spacing, useTheme, radius } from "@/src/theme";
 import { Pressable } from "react-native";
 
 import { TRADES, tradeLabel } from "@/src/constants";
+import { CONTACT_CHOICES, ChoiceCards } from "@/src/call/ChoiceCards";
 
 function RoleCard({ icon, title, body, onPress, testID, selected }: any) {
   const { colors } = useTheme();
@@ -44,6 +45,7 @@ export default function Welcome() {
   const [zip, setZip] = useState("");
   const [place, setPlace] = useState<any>(null);
   const [phone, setPhone] = useState("");
+  const [pref, setPref] = useState("message");
   const role = me?.user?.role;
 
   const setRole = async (r: string, start?: string) => {
@@ -109,9 +111,11 @@ export default function Welcome() {
       <View style={{ gap: spacing.lg }}>
         <Field testID="handyman-zip-input" label="ZIP code" keyboardType="number-pad" maxLength={5} value={zip} onChangeText={lookupZip} hint={place ? `${place.city}, ${place.state}` : "City and state fill in automatically"} />
         <Field testID="handyman-phone-input" label="Phone" keyboardType="phone-pad" value={phone} onChangeText={setPhone} hint="Never shared with tenants" />
+        <Txt v="label">How should Rentwise reach you about new jobs?</Txt>
+        <ChoiceCards testIDPrefix="setup-contact-pref" choices={CONTACT_CHOICES} value={pref} onChange={setPref} />
         <BigButton testID="handyman-setup-done" label="Done" loading={busy} disabled={!trades.length || !place} onPress={async () => {
           setBusy(true);
-          try { await api("/handyman/setup", { body: { trades, zip, city: place.city, state: place.state, phone } }); await refresh(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
+          try { await api("/handyman/setup", { body: { trades, zip, city: place.city, state: place.state, phone } }); await api("/handyman/profile", { method: "PATCH", body: { contact_pref: pref } }); await refresh(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
         }} />
       </View>
       <Row style={{ justifyContent: "center" }}><TextButton testID="handyman-switch-account" label="Use a different Google account" onPress={signOut} color={colors.muted} /></Row>

@@ -5,11 +5,54 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from emergentintegrations.llm.openai import OpenAISpeechToText, OpenAITextToSpeech
 from core import db, NF, LLM_KEY, APP_NAME, get_user, get_media_user, put_object, get_object, log
-import asyncio
+import asyncio, os
 
 router = APIRouter(prefix="/api")
 STT_MODEL = "gpt-4o-mini-transcribe"   # doesn't invent text on silence
 TTS_MODEL, TTS_VOICE = "tts-1", "coral"  # fast, warm voice
+VOICE_PROVIDER = os.environ.get("VOICE_PROVIDER", "emergent")
+
+
+async def _emergent_transcribe(data):
+    f = io.BytesIO(data)
+    f.name = f"recording.{sniff_ext(data)}"
+    r = await OpenAISpeechToText(api_key=LLM_KEY).transcribe(file=f, model=STT_MODEL, response_format="json", language="en", temperature=0)
+    return (getattr(r, "text", "") or "").strip()
+
+
+async def _emergent_speak(text):
+    return await asyncio.wait_for(OpenAITextToSpeech(api_key=LLM_KEY).generate_speech(text=text, model=TTS_MODEL, voice=TTS_VOICE), 30), "audio/mpeg"
+
+
+async def _elevenlabs_transcribe(data):
+    raise RuntimeError("ElevenLabs isn't set up yet (needs ELEVENLABS_API_KEY)")
+
+
+async def _elevenlabs_speak(text):
+    raise RuntimeError("ElevenLabs isn't set up yet (needs ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID)")
+
+
+async def transcribe_bytes(data, mime=None):
+    """Provider-switched speech to text; ElevenLabs errors fall back to Emergent for that turn."""
+    if VOICE_PROVIDER == "elevenlabs":
+        try:
+            return await _elevenlabs_transcribe(data), "elevenlabs"
+        except Exception as e:  # noqa: BLE001
+            log.warning("elevenlabs stt failed, using emergent: %s", e)
+    return await _emergent_transcribe(data), "emergent"
+
+
+async def speak_text(text):
+    """Provider-switched text to speech → (bytes, mime, provider)."""
+    text = clean_for_tts(text)
+    if VOICE_PROVIDER == "elevenlabs":
+        try:
+            b, m = await _elevenlabs_speak(text)
+            return b, m, "elevenlabs"
+        except Exception as e:  # noqa: BLE001
+            log.warning("elevenlabs tts failed, using emergent: %s", e)
+    b, m = await _emergent_speak(text)
+    return b, m, "emergent"
 
 
 def clean_for_tts(text):

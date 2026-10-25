@@ -16,6 +16,7 @@ export function HmCard({ h, index, right, onPress }: any) {
         <View style={{ flex: 1, gap: 2 }}>
           <Txt v="label">{h.name}</Txt>
           <Txt v="small">{(h.trades || []).join(", ")} · {h.city}</Txt>
+          {h.contact_pref ? <Txt v="small" testID={`handyman-pref-${h.user_id}`}>{h.contact_pref === "call" ? "📞 Prefers calls" : "💬 Prefers messages"}</Txt> : null}
           <Txt v="small" color={colors.onSurface}>★ {h.rating_avg?.toFixed?.(1) || "New"}{h.jobs_for_you != null ? ` · ${h.jobs_for_you} jobs for you` : ` · ${h.jobs_done || 0} ${h.jobs_done === 1 ? "job" : "jobs"}`}</Txt>
           {h.last_job ? <Txt v="small">Last: {h.last_job}</Txt> : null}
         </View>

@@ -1,0 +1,41 @@
+{
+  "summary": "I tested handyman in-app calls from start to finish against the public URL, with the real LLM and real Emergent TTS. Backend: 27/27 pass (test_calls.py 15 mocked + new test_calls_live.py 12 live). Regression test_single_slot_and_missed.py 16/16. Frontend found one CRITICAL bug, now FIXED: the root Gate in app/_layout.tsx did not list 'call' in SHARED. Every router.push('/call/<id>') was sent straight back to the role home, so the ring screen never showed (the handyman always got a missed call). The landlord's read-only transcript could not open either. After adding 'call' to SHARED, these all work in the UI: the watcher opens the ring screen; Answer shows the opening line, timer, hold-to-talk, Type instead and Hang up; a typed price and time ends the call as accepted, the ticket moves to awaiting_tenant_time and the $140 approval stays pending. Decline also works: back to Jobs with missed-call-<tid>, the job chat offer starts 'Tried calling you', the tenant is told 'didn't pick up, so I've messaged him too'. Hang up leaves the call undecided. Also working: landlord Settings cards persist, the 'Prefers calls' label, the Profile contact-pref cards, timeline-call-<id> and chat-call-<id> opening call-transcript-screen read-only, and text offers when the setting is off. No deprecated Expo packages detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "tick_calls / RING_S", "issue": "RING_S is 20 s in demo, but a missed call was only detected after about 34 s because of the background tick interval. The ring screen keeps ringing for up to about 35 s."},
+      {"endpoint": "POST /api/calls/{id}/decline", "issue": "Declining on the ring screen stores outcome 'no_answer'. The timeline says 'Called Hank — no answer' and the transcript subtitle says 'no answer', even though the handyman actively declined."},
+      {"endpoint": "PUT /api/settings", "issue": "handyman_calls is set with bool(body[...]), so the string \"false\" becomes True. Validate it as a strict boolean."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/_layout.tsx Gate", "issue": "FIXED by testing agent: 'call' was missing from the SHARED route list, so /call/<id> was always replaced with the role home. Handymen never saw incoming-call-screen; the watcher re-pushed in a loop every 3 s until the call rang out. The landlord transcript was also blocked.", "testID": "incoming-call-screen, call-transcript-screen", "priority": "CRITICAL"},
+      {"component": "app/call/[id].tsx router.back()", "issue": "If /call/<id> is opened directly (deep link or reload) and the call ends, router.back() has no history. The app shows the error toast \"The action 'GO_BACK' was not handled\" and stays on the call screen. Use router.canGoBack() ? back() : replace('/'). Same for decline, hangup and missed.", "testID": "call-hangup, call-decline", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings / Profile ChoiceCards", "issues": ["The cards have no accessibilityRole='radio' or accessibilityState={{checked}} (aria-checked is null), so screen readers cannot tell which option is selected."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_calls_live.py", "/app/backend/tests/test_calls.py", "/app/backend/tests/ring_now.py", "/app/test_reports/pytest/pytest_calls_live.xml"],
+  "action_items": [
+    "Keep the 'call' entry in SHARED in app/_layout.tsx (testing agent fix). Check any other new top-level routes against the Gate.",
+    "In app/call/[id].tsx, replace router.back() with a canGoBack() fallback to router.replace('/') (after the call ends, decline, hangup, missed and answer error).",
+    "Optional: record declines as outcome 'declined' with timeline wording 'Hank declined the call · Texted the job offer'.",
+    "Optional: run tick_calls more often, or check ring expiry in GET /calls/incoming, so 20 s really means 20 s.",
+    "Optional: validate handyman_calls as a strict bool; add accessibilityState to ChoiceCards."
+  ],
+  "critical_code_review_comments": [
+    "IncomingCallWatcher only mounts inside the (handyman) group layout. If a handyman cold-loads or refreshes straight onto a shared screen (e.g. /thread/<id>), the group is not mounted and no ring is shown. Not tested; worth a check.",
+    "The voice agent sometimes repeats the details back and asks to confirm even after the handyman said 'confirmed'. The UI then needed 2 turns, while the API test accepted in 1. This is allowed by VOICE_RULES and is not a bug."
+  ],
+  "updated_files": ["/app/frontend/app/_layout.tsx (added 'call' to SHARED)", "/app/backend/tests/test_calls_live.py (new)", "/app/backend/tests/ring_now.py (new helper)"],
+  "success_rate": {"backend": "100% (27/27 call tests + 16/16 regression)", "frontend": "~92% after fix (ring/answer/type/accept/decline/hangup/transcript/settings/prefs all pass; GO_BACK on deep link fails)"},
+  "seed_data_creation": "Created several 'Kitchen/Bathroom sink clogged' tickets via Tom's chat (all cancelled at the end). Reset: landlord handyman_calls=false, Hank contact_pref=message.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "To trigger a ring for UI tests, run `(sleep 15; python /app/backend/tests/make_offer.py \"My kitchen sink is clogged and the water won't drain at all, please send a plumber\") &` from bash, then load the web app as Hank (localStorage rw_session_token=test-handyman-token) and wait up to 90 s for incoming-call-screen. Turn the landlord setting on and set Hank to 'call' first. The test_calls_live.py fixture handles this and resets afterwards. Headless Chromium has a fake mic, so hold-to-talk records silence and gets 'didn't catch that'. Demo offers expire fast, so an unanswered ticket moves to the next handyman within about 1 minute.",
+  "rca_of_issue": "Repro: calls on, Hank on 'call', tenant reports a clog, Hank's web app on Jobs. Browser navigation log: '/' → '/call/<id>' → '/' repeating every ~3 s until the call is missed. Cause: Gate's useEffect in app/_layout.tsx replaces any route whose first segment is not the role group or in SHARED; 'call' was missing. Fix: added 'call' to SHARED. Verified: the ring screen now stays and the full accept flow works."
+}
