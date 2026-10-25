@@ -5,7 +5,7 @@ import { api } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { BigButton, Card, ConfirmSheet, Divider, Field, LargeHeader, Row, Screen, Section, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
-import { spacing, useTheme } from "@/src/theme";
+import { useTheme } from "@/src/theme";
 
 export default function Settings() {
   const router = useRouter();
@@ -19,9 +19,10 @@ export default function Settings() {
   const [name, setName] = useState("");
   const [pay, setPay] = useState("");
   const [pol, setPol] = useState("");
+  const [lim, setLim] = useState("");
   const [reset, setReset] = useState(false);
   const [busy, setBusy] = useState(false);
-  useEffect(() => { if (s) { setName(s.name); setPay(s.payment_details || ""); } }, [s]);
+  useEffect(() => { if (s) { setName(s.name); setPay(s.payment_details || ""); setLim(s.auto_approve_limit != null ? String(s.auto_approve_limit).replace(/\.0+$/, "") : ""); } }, [s]);
   if (!s) return <Screen><Skeleton /></Screen>;
   const save = async (body: any, msg = "Saved") => { try { await api("/settings", { method: "PUT", body }); toast(msg); reload(); refresh(); } catch (e: any) { toast(e.message, "error"); } };
   return (
@@ -33,6 +34,13 @@ export default function Settings() {
         <BigButton testID="settings-save-profile" tone="soft" label="Save profile" onPress={() => save({ name, payment_details: pay })} />
       </Section>
       {isLandlord ? (
+        <Section title="Auto-OK repairs" testID="auto-limit-section">
+          <Field testID="auto-limit-input" label="Auto-OK repairs up to ($)" value={lim} onChangeText={(v) => setLim(v.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"))} keyboardType="decimal-pad" placeholder="200"
+            hint={Number(lim) > 0 ? `When a handyman's price is $${lim} or less and the tenant agrees, it's booked without your tap. You still tap to pay.` : "Off. Every price needs your tap."} />
+          <BigButton testID="auto-limit-save" tone="soft" label="Save limit" onPress={() => save({ auto_approve_limit: Number(lim) || 0 }, Number(lim) > 0 ? `Auto-OK up to $${lim}` : "Auto-OK turned off")} />
+        </Section>
+      ) : null}
+      {isLandlord ? (
         <Section title="What Doorman follows" testID="policies-section">
           <Card agent>
             {(s.policies || []).map((p: string, i: number) => (
@@ -41,7 +49,7 @@ export default function Settings() {
                 <TextButton testID={`policy-remove-${i}`} label="Remove" color={colors.error} onPress={() => save({ policies: s.policies.filter((_: any, j: number) => j !== i) }, "Removed")} />
               </Row>
             ))}
-            {!s.policies?.length ? <Txt v="small">e.g. “Hank for plumbing”, “No visits before 9 am”. Money always needs your tap.</Txt> : null}
+            {!s.policies?.length ? <Txt v="small">e.g. “Hank for plumbing”, “No visits before 9 am”. Money always needs your tap, except repairs under your auto-OK limit.</Txt> : null}
           </Card>
           <Field testID="policy-input" label="Add an instruction" value={pol} onChangeText={setPol} placeholder="Use the marketplace only if my handymen are busy" />
           <BigButton testID="policy-add" tone="soft" label="Add" disabled={!pol.trim()} onPress={() => { save({ policies: [...(s.policies || []), pol.trim()] }, "Doorman will follow this"); setPol(""); }} />

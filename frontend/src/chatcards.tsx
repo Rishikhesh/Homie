@@ -46,6 +46,7 @@ function ChoiceCard({ d, role, reload }: { d: any; role: Role; reload: () => voi
   return (
     <Shell testID={`card-choice-${d.ticket_id}`}>
       <Txt v="label">Pick a time</Txt>
+      {d.auto && d.quote ? <Txt v="small" testID="choice-auto-note">{role === "tenant" && !d.picked_slot ? `Price $${d.quote} · picking a time agrees to it` : `Price $${d.quote} · auto-OK'd, under the owner's limit`}</Txt> : null}
       <TimeChoice testIDPrefix="slot-chip" slots={d.slots} picked={d.picked_slot?.iso} disabled={!open || busy}
         onPick={open ? async (iso) => { setBusy(true); try { await api(`/tickets/${d.ticket_id}/pick-slot`, { body: { slot: iso } }); burst("Booked"); reload(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); } } : undefined} />
       {d.picked_slot ? <Status kind="good" label={`Picked ${fmtSlot(d.picked_slot)}`} size="sm" /> : null}

@@ -127,19 +127,38 @@ async def handyman_accept(ticket, hid, quote, slots):
     tz = prop["timezone"]
     slot_objs = [{"iso": s, "label": fmt_slot(s, tz)} for s in (localize(x, tz) for x in slots[:3])]
     pref = ticket.get("picked_slot")
+    landlord = await db.users.find_one({"id": ticket["landlord_id"]}, NF)
+    limit = auto_limit(landlord)
+    auto = 0 < float(quote) <= limit
     ticket = await transition(ticket["id"], "offered", "awaiting_tenant_time",
-                              {"quote": float(quote), "quote_status": "pending", "slots": slot_objs, "proposed_at": iso(), "picked_slot": None})
+                              {"quote": float(quote), "quote_status": "auto" if auto else "pending", "auto_limit": limit if auto else None,
+                               "slots": slot_objs, "proposed_at": iso(), "picked_slot": None})
     h = await handyman_doc(hid)
-    await create_approval(ticket["landlord_id"], "quote", quote, ticket_id=ticket["id"], tenant_id=ticket["tenant_id"],
-                          title=f"Approve {money(quote)} for {ticket['title'].lower()}",
-                          reason=f"{h['name']} quoted {money(quote)} to fix the {ticket['title'].lower()} at {prop['name']}.",
-                          recommendation=fair_note(ticket["trade"], quote), urgent=ticket["urgency"] == "emergency")
     await timeline(ticket["id"], f"{h['name']} accepted and quoted {money(quote)}")
-    await activity(ticket["landlord_id"], f"{first(h['name'])} quoted {money(quote)} for the {ticket['title'].lower()}", ticket["id"])
     labels = " or ".join(s["label"] for s in slot_objs)
     extra = f" (you mentioned {pref['label']} earlier)" if pref else ""
+    if auto:
+        await activity(ticket["landlord_id"], f"{first(h['name'])} quoted {money(quote)} for the {ticket['title'].lower()} — under your {money(limit)} auto-OK, no tap needed", ticket["id"])
+        await tell_tenant(ticket, f"{h['name']} can fix it for {money(quote)} and come {labels}{extra}. Picking a time agrees to the price.",
+                          cards=[{"type": "choice_time", "ref_id": ticket["id"]}])
+        await tell_handyman(ticket, f"Thanks! {money(quote)} is within the owner's auto-OK limit, so it's booked as soon as the tenant picks a time.")
+        return
+    await create_approval(ticket["landlord_id"], "quote", quote, ticket_id=ticket["id"], tenant_id=ticket["tenant_id"],
+                          title=f"Approve {money(quote)} for {ticket['title'].lower()}",
+                          reason=f"{h['name']} quoted {money(quote)} to fix the {ticket['title'].lower()} at {prop['name']}." + (f" Above your {money(limit)} auto-OK limit." if limit else ""),
+                          recommendation=fair_note(ticket["trade"], quote), urgent=ticket["urgency"] == "emergency")
+    await activity(ticket["landlord_id"], f"{first(h['name'])} quoted {money(quote)} for the {ticket['title'].lower()}", ticket["id"])
     await tell_tenant(ticket, f"{h['name']} can come {labels}{extra}. Which works for you?", cards=[{"type": "choice_time", "ref_id": ticket["id"]}])
     await tell_handyman(ticket, "Thanks! Times sent to the tenant, price sent to the owner.")
+
+
+AUTO_LIMIT_DEFAULT = 200.0
+
+
+def auto_limit(landlord):
+    """Repairs priced at or under this are OK'd once the tenant agrees (0 = off)."""
+    v = (landlord or {}).get("auto_approve_limit")
+    return AUTO_LIMIT_DEFAULT if v is None else float(v)
 
 
 def localize(s, tz):
@@ -182,8 +201,29 @@ async def pick_slot(ticket, slot_iso):
         raise HTTPException(400, "Please pick one of the offered times")
     ticket = await transition(ticket["id"], "awaiting_tenant_time", "awaiting_tenant_time", {"picked_slot": slot})
     await timeline(ticket["id"], f"Tenant picked {slot['label']}", "tenant")
-    _, _, tenant, _ = await ctx(ticket)
-    await activity(ticket["landlord_id"], f"{first(tenant['name'])} picked {slot['label']}", ticket["id"])
+    prop, _, tenant, landlord = await ctx(ticket)
+    if ticket.get("quote_status") == "auto" and float(ticket["quote"]) > auto_limit(landlord):
+        # landlord lowered or turned off the limit since the price came in: fall back to a tap
+        ticket = await db.tickets.find_one_and_update({"id": ticket["id"], "quote_status": "auto"}, {"$set": {"quote_status": "pending"}},
+                                                      projection=NF, return_document=True) or await get_ticket(ticket["id"])
+        if ticket.get("quote_status") == "pending":
+            await create_approval(ticket["landlord_id"], "quote", ticket["quote"], ticket_id=ticket["id"], tenant_id=ticket["tenant_id"],
+                                  title=f"Approve {money(ticket['quote'])} for {ticket['title'].lower()}",
+                                  reason=f"{first(tenant['name'])} agreed to {money(ticket['quote'])} for the {ticket['title'].lower()} at {prop['name']}.",
+                                  recommendation=fair_note(ticket["trade"], ticket["quote"]))
+    if ticket.get("quote_status") == "auto":
+        amt = float(ticket["quote"])
+        ticket = await db.tickets.find_one_and_update({"id": ticket["id"], "quote_status": "auto"},
+                                                      {"$set": {"quote_status": "approved", "approved_amount": amt, "auto_approved": True}},
+                                                      projection=NF, return_document=True) or await get_ticket(ticket["id"])
+        await db.approvals.insert_one({"id": uid(), "landlord_id": ticket["landlord_id"], "kind": "quote", "amount": amt, "ticket_id": ticket["id"],
+                                       "tenant_id": ticket["tenant_id"], "title": f"Auto-OK'd {money(amt)} for {ticket['title'].lower()}",
+                                       "reason": f"Tenant agreed to {money(amt)}, under your {money(ticket.get('auto_limit') or 0)} limit.",
+                                       "status": "auto_approved", "created_at": iso(), "resolved_at": iso()})
+        await timeline(ticket["id"], f"Tenant agreed to {money(amt)} — auto-OK'd (under the owner's limit)", "tenant")
+        await activity(ticket["landlord_id"], f"Auto-OK'd {money(amt)} for the {ticket['title'].lower()} — {first(tenant['name'])} agreed to the price", ticket["id"])
+    else:
+        await activity(ticket["landlord_id"], f"{first(tenant['name'])} picked {slot['label']}", ticket["id"])
     booked = await maybe_book(ticket)
     if not booked:
         await tell_tenant(ticket, f"Got it, {slot['label']}. Waiting for the owner's OK.")

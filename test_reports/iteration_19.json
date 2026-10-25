@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only test of the landlord auto-approve limit, via the public URL at 375x667, all 4 requested flows: 4/4 passed. 1) Landlord Settings shows 'Auto-OK repairs' (auto-limit-section) with auto-limit-input prefilled to 200. Changing it to 300 and tapping auto-limit-save showed the toast 'Auto-OK up to $300', and the value stayed 300 after a reload. Letters typed in the field are filtered out. The limit was set back to 200 and that held after a reload. 2) Tenant and handyman Settings do not show the section. 3) End to end, under the limit: the tenant sent 'bathroom sink dripping, send a plumber' in chat, and the ticket was created and offered to Hank. The handyman took the job from the offer card (offer-take → ticket-accept-button → price 150 + accept-time-0 → accept-submit). The tenant chat showed 'Hank Miller can fix it for $150 … Picking a time agrees to the price.', and choice-auto-note read exactly 'Price $150 · picking a time agrees to it'. Tapping slot-chip-0 gave 'Picked Mon 10 am' and the note changed to 'auto-OK'd, under the owner's limit'; the ticket became booked with quote_status=approved. The landlord home had no approval card (needs-you-empty was shown) and the feed included \"Auto-OK'd $150 for the bathroom sink dripping — Tom agreed to the price\". The landlord ticket shows '$150 OK'd' with a timeline entry. 4) Over the limit, 260: the choice card had no auto note, the tenant got 'Waiting for the owner's OK', and the landlord home showed 1 approval card for $260 Kitchen drain clogged. Cleanup: both test tickets were cancelled, no pending approvals are left, and the limit is 200.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Handyman AcceptSheet (app/ticket/[id].tsx:56)", "issues": ["The caption under the price always says 'Your price · owner OKs it first', even when the price is under the owner's auto-OK limit (no owner OK is needed). This is misleading but minor. Suggest neutral copy such as 'Your price'. Alternatively, show 'Auto-OK'd if under the owner's limit' when the backend exposes it."]},
+      {"screen": "Settings", "issues": ["The toast covers the Back button for about 2 seconds after saving. This is minor and was already the case before this feature."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_auto_approve.py", "/app/backend/tests/test_single_slot_and_missed.py (_new_offer helper)"],
+  "action_items": [
+    "Optional: update the AcceptSheet caption 'owner OKs it first' (app/ticket/[id].tsx:56) so it is not wrong for under-limit quotes.",
+    "Optional: in settings.tsx:40, `Number(lim) || 0` silently turns auto-OK off for input like '2.5.5' (NaN → 0). Consider validating the input and showing an error instead."
+  ],
+  "critical_code_review_comments": [
+    "flows.pick_slot auto-approves based on the quote_status='auto' stored when the handyman accepted. If the landlord lowers the limit or turns it off (0) before the tenant picks a time, the quote is still auto-OK'd at the old limit. Re-check auto_limit(landlord) in pick_slot if the current limit should apply.",
+    "After the tenant picks a time, the tenant's chat card says 'auto-OK'd, under the owner's limit'. That is fine, but it tells the tenant the landlord has a limit. This is a product choice, not a bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not in scope (frontend only)", "frontend": "100% (4/4 requested flows)"},
+  "seed_data_creation": "Created tickets 049848cd7cfa480f (booked under the limit at $150) and c423c2b3ca5249d0 (over the limit at $260). Both are now cancelled. The landlord auto_approve_limit is back to 200.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The AcceptSheet slides in with an animation. Wait about 1s after opening it, then scroll it with mouse.wheel over the sheet before clicking accept-time-0 / accept-submit; otherwise you get 'element outside of viewport'. The tenant chat agent takes up to about 30s to create a ticket. _new_offer() in test_single_slot_and_missed.py is a quick way to create an offered ticket from the API.",
+  "rca_of_issue": ""
+}

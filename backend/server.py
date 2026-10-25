@@ -959,12 +959,23 @@ async def lease_pdf(lid: str, user=Depends(get_media_user)):
 # ---------------- settings / memory / sample ----------------
 @api.get("/settings")
 async def get_settings(user=Depends(get_user)):
-    return {"name": user["name"], "email": user["email"], "role": user["role"], "policies": user.get("policies") or [], "payment_details": user.get("payment_details", ""), "demo": DEMO}
+    return {"name": user["name"], "email": user["email"], "role": user["role"], "policies": user.get("policies") or [], "payment_details": user.get("payment_details", ""), "demo": DEMO,
+            "auto_approve_limit": flows.auto_limit(user) if user["role"] == "landlord" else None}
 
 
 @api.put("/settings")
 async def put_settings(body: dict, user=Depends(get_user)):
     upd = {k: body[k] for k in ("name", "policies", "payment_details") if k in body}
+    if "auto_approve_limit" in body:
+        if user["role"] != "landlord" or user.get("acting_by"):
+            raise HTTPException(403, "Only the owner can set the auto-OK limit")
+        try:
+            lim = float(body["auto_approve_limit"] or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Please enter an amount like 200")
+        if not 0 <= lim <= 10000:
+            raise HTTPException(400, "Pick an amount between $0 and $10,000")
+        upd["auto_approve_limit"] = lim
     await db.users.update_one({"id": user["id"]}, {"$set": upd})
     return {"ok": True}
 

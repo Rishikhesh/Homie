@@ -46,7 +46,8 @@ async def resolve_card(ctype, ref, user, question=None):
         h = await db.handymen.find_one({"user_id": t["handyman_id"]}, NF) if t.get("handyman_id") else None
         from server import STEP
         return {"type": ctype, "ticket_id": t["id"], "title": t["title"], "trade": t["trade"], "status": t["status"], "step": STEP.get(t["status"], 0),
-                "picked_slot": t.get("picked_slot"), "slots": t.get("slots") or [], "question": question or ("fixed" if ctype == "yes_no" else None),
+                "picked_slot": t.get("picked_slot"), "slots": t.get("slots") or [],
+                "quote": t.get("quote"), "auto": t.get("quote_status") == "auto" or bool(t.get("auto_approved")), "question": question or ("fixed" if ctype == "yes_no" else None),
                 "handyman": {"name": h["name"], "rating": h.get("rating_avg"), "trade": (h.get("trades") or [None])[0]} if h else None}
     if ctype == "yes_no":
         return {"type": "yes_no", "question": question or ""}

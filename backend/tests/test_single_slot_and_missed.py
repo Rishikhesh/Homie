@@ -39,7 +39,7 @@ class TestSingleSlotAccept:
         tid = S["tid"]
         day = (dt.datetime.now(ZoneInfo("America/Los_Angeles")) + dt.timedelta(days=1)).date()
         wall = f"{day.isoformat()}T10:00:00"
-        r = post("handyman", f"/tickets/{tid}/accept", {"quote": 150, "slots": [wall]})
+        r = post("handyman", f"/tickets/{tid}/accept", {"quote": 250, "slots": [wall]})
         assert r.status_code == 200, r.text
         t = get("handyman", f"/tickets/{tid}").json()
         assert t["status"] == "awaiting_tenant_time"
@@ -52,7 +52,7 @@ class TestSingleSlotAccept:
     def test_04_landlord_quote_approval(self):
         t = get("landlord", f"/tickets/{S['tid']}").json()
         pa = t["pending_approval"]
-        assert pa and pa["kind" if "kind" in pa else "type"] == "quote" and float(pa["amount"]) == 150, pa
+        assert pa and pa["kind" if "kind" in pa else "type"] == "quote" and float(pa["amount"]) == 250, pa
 
     def test_05_tenant_sees_one_slot_and_picks(self):
         t = get("tenant", f"/tickets/{S['tid']}").json()

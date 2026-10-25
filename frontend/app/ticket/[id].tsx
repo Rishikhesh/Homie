@@ -53,7 +53,7 @@ function AcceptSheet({ t, visible, onClose, onDone }: any) {
   return (
     <Sheet visible={visible} onClose={onClose} title="Take this job" testID="accept-sheet">
       <View style={{ gap: spacing.lg }}>
-        <BigNumber value={`$${quote || "0"}`} caption="Your price · owner OKs it first" />
+        <BigNumber value={`$${quote || "0"}`} caption="Your price · small jobs can be OK'd automatically" />
         <NumberPad value={quote} onChange={setQuote} />
         <Field testID="accept-quote-input" label="Or type the price" keyboardType="decimal-pad" value={quote} onChangeText={setQuote} />
         <Txt v="h2">When can you come?</Txt>

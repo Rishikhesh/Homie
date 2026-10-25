@@ -88,7 +88,7 @@ class TestRepairFlow:
         base = (now + dt.timedelta(days=1)).replace(hour=17, minute=0, second=0, microsecond=0)  # 10am PT
         slots = [(base + dt.timedelta(hours=i)).isoformat() for i in (0, 2)]
         S["slots"] = slots
-        r = post("handyman", f"/tickets/{S['tid']}/accept", {"quote": 150, "slots": slots}); assert r.status_code == 200, r.text
+        r = post("handyman", f"/tickets/{S['tid']}/accept", {"quote": 250, "slots": slots}); assert r.status_code == 200, r.text
 
     def test_04_landlord_approves_quote_once(self):
         time.sleep(2)
@@ -264,13 +264,13 @@ class TestAfterPhotoVisibility:
         if not new: pytest.skip("no ticket created")
         tid = new[0]["id"]
         slot = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=1)).replace(hour=17, minute=0, second=0, microsecond=0).isoformat()
-        assert post("handyman", f"/tickets/{tid}/accept", {"quote": 100, "slots": [slot]}).status_code == 200
+        assert post("handyman", f"/tickets/{tid}/accept", {"quote": 250, "slots": [slot]}).status_code == 200
         time.sleep(1)
         a = [a for a in get("landlord", "/landlord/home").json()["approvals"] if a.get("ticket_id") == tid][0]
         post("landlord", f"/approvals/{a['id']}/decide", {"action": "approve"})
         post("tenant", f"/tickets/{tid}/pick-slot", {"slot": slot})
         f = upload("handyman", "after.png", PNG + os.urandom(8))
-        post("handyman", f"/tickets/{tid}/mark-fixed", {"final_amount": 100, "after_photo_id": f["id"]})
+        post("handyman", f"/tickets/{tid}/mark-fixed", {"final_amount": 250, "after_photo_id": f["id"]})
         ll = get("landlord", f"/files/{f['id']}").status_code
         tn = get("tenant", f"/files/{f['id']}").status_code
         post("tenant", f"/tickets/{tid}/cancel")

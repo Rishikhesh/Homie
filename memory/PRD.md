@@ -97,3 +97,9 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 - UI: src/bank.tsx BankCard (tenant Payments "Your bank", landlord Money "Payouts"), PayButton pays "from ••mask" when connected.
 - Tests: tests/test_transfers.py. User choices: test money only, tenant taps each month, record + auto-sort.
 - Fixes (iterations 17-18): shared bank store (Pay buttons update instantly), failed transfers marked failed, one Plaid idempotency key per attempt (retry after decline works), crash-after-debit reuse (no double charge), receipt wording for Plaid payments, disconnect removes the Plaid item, sandbox test user with a $25k balance (set up by the testing agent).
+
+## Auto-OK repair limit — June 2026 (iteration_19 + tests/test_auto_approve.py)
+- Landlord Settings → "Auto-OK repairs up to ($)" (users.auto_approve_limit, default 200, 0 = off; tenants/handymen can't set it).
+- Handyman price <= limit → no landlord approval card; ticket.quote_status="auto"; tenant's time card shows "Price $X · picking a time agrees to it".
+- Tenant picks time → quote approved (auto_approved=True), approvals record status "auto_approved", booked. Limit re-checked at pick; if lowered, falls back to landlord tap.
+- Over limit → old flow. Final-price overage + handyman payment still need landlord tap.

@@ -192,11 +192,11 @@ async def _answered(plan, said="Thursday at three, about one forty"):
 def test_7_accept_by_voice_creates_quote_approval_not_money():
     async def go():
         slot = (now() + timedelta(days=3)).strftime("%Y-%m-%dT15:00")
-        t, hs, unit, c, outcome, _ = await _answered([Resp(tool_calls=[TC("accept_job", {"quote": 140, "slots": [slot]})]), Resp("Great, sent to the owner.")])
+        t, hs, unit, c, outcome, _ = await _answered([Resp(tool_calls=[TC("accept_job", {"quote": 340, "slots": [slot]})]), Resp("Great, sent to the owner.")])
         try:
             assert outcome == "accepted"
             tk = await db.tickets.find_one({"id": t["id"]}, NF)
-            assert tk["status"] == "awaiting_tenant_time" and tk["quote"] == 140 and tk["slots"]
+            assert tk["status"] == "awaiting_tenant_time" and tk["quote"] == 340 and tk["slots"]
             a = await db.approvals.find_one({"ticket_id": t["id"]}, NF)
             assert a and a["status"] == "pending"  # money waits for the landlord's tap
             assert not tk.get("approved_amount")
