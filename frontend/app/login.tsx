@@ -28,14 +28,14 @@ export default function Login() {
           <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" }}>
             <Ionicons name="sparkles" size={17} color={colors.onBrandPrimary} />
           </View>
-          <Txt v="h2">Doorman</Txt>
+          <Txt v="h2">Homi</Txt>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(500).delay(100)} style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
           <Txt testID="login-headline" v="title" style={{ fontSize: big, lineHeight: Math.round(big * 1.08), letterSpacing: -1.5 }}>
             Your rental,{"\n"}<Txt v="title" color={colors.brandPrimary} style={{ fontSize: big, lineHeight: Math.round(big * 1.08), letterSpacing: -1.5 }}>running itself.</Txt>
           </Txt>
-          <Txt v="body" color={colors.onSurfaceTertiary} style={{ fontSize: 18, lineHeight: 26 }}>An AI doorman for your homes. Rent, repairs and tenants handled. You just OK the money.</Txt>
+          <Txt v="body" color={colors.onSurfaceTertiary} style={{ fontSize: 18, lineHeight: 26 }}>Your AI home manager. Rent, repairs and tenants handled. You just OK the money.</Txt>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.duration(450).delay(250)} style={{ gap: compact ? spacing.sm : spacing.md }}>

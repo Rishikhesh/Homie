@@ -1,4 +1,4 @@
-# Iteration 4: Ask Doorman triage (seat-aware, quick replies answered) + report insights (POST /reports/{pid}/check)
+# Iteration 4: Ask Homi triage (seat-aware, quick replies answered) + report insights (POST /reports/{pid}/check)
 import os
 import time
 import pytest

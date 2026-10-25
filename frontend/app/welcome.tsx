@@ -63,7 +63,7 @@ export default function Welcome() {
         <LargeHeader title={`Hi ${me?.user?.name?.split(" ")[0] || ""}`} subtitle="I am a:" />
         <View style={{ gap: spacing.md }}>
           <RoleCard testID="role-landlord" icon="home" title="Landlord" body="I rent out a home or rooms" selected={pick === "landlord"} onPress={() => setPick("landlord")} />
-          <RoleCard testID="role-tenant" icon="key" title="Tenant" body="I rent from a landlord on Doorman" selected={pick === "tenant"} onPress={() => setRole("tenant")} />
+          <RoleCard testID="role-tenant" icon="key" title="Tenant" body="I rent from a landlord on Homi" selected={pick === "tenant"} onPress={() => setRole("tenant")} />
           <RoleCard testID="role-handyman" icon="construct" title="Handyman" body="I fix things for landlords" selected={pick === "handyman"} onPress={() => setRole("handyman")} />
         </View>
         {pick === "landlord" ? (
@@ -88,7 +88,7 @@ export default function Welcome() {
           <Card testID="no-invite-card" style={{ gap: spacing.md }}>
             <Ionicons name="mail-unread-outline" size={28} color={colors.brandPrimary} />
             <Txt v="h2">No invite yet</Txt>
-            <Txt v="body">Ask your landlord to add <Txt v="label">{me?.user?.email}</Txt> in Doorman. It will show up here.</Txt>
+            <Txt v="body">Ask your landlord to add <Txt v="label">{me?.user?.email}</Txt> in Homi. It will show up here.</Txt>
             <BigButton testID="no-invite-refresh" label="Refresh" icon="refresh" onPress={async () => { await refresh(); toast("Checked for invites"); }} />
           </Card>
         )}
@@ -111,7 +111,7 @@ export default function Welcome() {
       <View style={{ gap: spacing.lg }}>
         <Field testID="handyman-zip-input" label="ZIP code" keyboardType="number-pad" maxLength={5} value={zip} onChangeText={lookupZip} hint={place ? `${place.city}, ${place.state}` : "City and state fill in automatically"} />
         <Field testID="handyman-phone-input" label="Phone" keyboardType="phone-pad" value={phone} onChangeText={setPhone} hint="Never shared with tenants" />
-        <Txt v="label">How should Doorman reach you about new jobs?</Txt>
+        <Txt v="label">How should Homi reach you about new jobs?</Txt>
         <ChoiceCards testIDPrefix="setup-contact-pref" choices={CONTACT_CHOICES} value={pref} onChange={setPref} />
         <BigButton testID="handyman-setup-done" label="Done" loading={busy} disabled={!trades.length || !place} onPress={async () => {
           setBusy(true);

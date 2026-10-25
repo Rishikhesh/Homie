@@ -1,4 +1,4 @@
-"""Handyman calls: Doorman rings a handyman in the app and agrees a time and price by voice.
+"""Handyman calls: Homi rings a handyman in the app and agrees a time and price by voice.
 On by choice only: the landlord turns on "Call handymen" in Settings and the handyman picks "Call me".
 Any miss, decline or error falls back to the normal text offer right away — a call never blocks a repair."""
 import asyncio, json, re
@@ -13,7 +13,7 @@ MAX_CALL_S = 300
 LIVE = ("ringing", "active")
 VOICE_RULES = ("You are on a voice call with the handyman. Reply in 1-2 short spoken sentences. No lists or symbols. Say prices and times naturally. "
                "Before ending, repeat back the time options and the price and ask them to confirm. When they confirm, call accept_job. "
-               "If they say they can't do it (busy, not this week, too far), call decline_job right away — don't suggest other dates; Doorman will ask someone else. "
+               "If they say they can't do it (busy, not this week, too far), call decline_job right away — don't suggest other dates; Homi will ask someone else. "
                "If they want to think about it, say they can tap Accept in the app later and call end_call. You never approve money: a price only goes to the owner for OK. "
                "Never share the tenant's phone, email or the address before booking.")
 
@@ -68,12 +68,12 @@ async def end_call(c, outcome, reason=""):
     dur = int((now() - datetime.fromisoformat(started)).total_seconds())
     c = await move(c["id"], "active", "ended", {"ended_at": iso(), "outcome": outcome, "duration_s": dur})
     talk = "\n".join(f"{x['who']}: {x['text']}" for x in c["turns"])
-    summary = strip_contacts(await quick("Summarize this phone call between Doorman and a handyman in one short line (max 12 words). Output only the line.", talk or "No talk.") or outcome)
+    summary = strip_contacts(await quick("Summarize this phone call between Homi and a handyman in one short line (max 12 words). Output only the line.", talk or "No talk.") or outcome)
     await db.calls.update_one({"id": c["id"]}, {"$set": {"summary": summary}})
     h = await handyman_doc(c["handyman_id"])
     mmss = f"{dur // 60}:{dur % 60:02d}"
     word = {"accepted": "accepted", "declined": "can't do it", "undecided": "thinking about it"}.get(outcome, outcome)
-    await post(c["thread_id"], f"Call with Doorman · {mmss} · {summary}", cards=[{"type": "call", "call_id": c["id"]}])
+    await post(c["thread_id"], f"Call with Homi · {mmss} · {summary}", cards=[{"type": "call", "call_id": c["id"]}])
     await timeline(c["ticket_id"], f"Called {first(h['name'])} · {mmss} · {word}", actor="agent")
     await db.tickets.update_one({"id": c["ticket_id"], "timeline.text": f"Called {first(h['name'])} · {mmss} · {word}"}, {"$set": {"timeline.$.call_id": c["id"]}})
     t = await get_ticket(c["ticket_id"])
@@ -130,7 +130,7 @@ async def opening_line(c):
     t = await get_ticket(c["ticket_id"])
     prop, unit, _, _ = await ctx(t)
     h = await handyman_doc(c["handyman_id"])
-    return (f"Hi {first(h['name'])}, it's Doorman for {prop['address'].split(',')[0]} in {prop['city']}. {t['title']} in {unit['label']}. "
+    return (f"Hi {first(h['name'])}, it's Homi for {prop['address'].split(',')[0]} in {prop['city']}. {t['title']} in {unit['label']}. "
             f"Can you take it this week, and roughly what would it cost?")
 
 
@@ -150,7 +150,7 @@ async def agent_turn(c, said, user):
     prop, _, _, _ = await ctx(t)
     thread = await db.threads.find_one({"id": c["thread_id"]}, NF)
     system = await build_system(thread, user) + f"\n\nVOICE CALL:\n{VOICE_RULES}\nToday is {now().astimezone().strftime('%A %Y-%m-%d')}. Property time zone: {prop['timezone']}."
-    history = "\n".join(f"{'Doorman' if x['who'] == 'agent' else 'Handyman'}: {x['text']}" for x in c["turns"])
+    history = "\n".join(f"{'Homi' if x['who'] == 'agent' else 'Handyman'}: {x['text']}" for x in c["turns"])
     chat = llm(system, SONNET, f"call-{c['id']}-{uid()}").with_tools(_tools())
     from emergentintegrations.llm.chat import UserMessage
     resp = await chat.send_message_with_tools(UserMessage(text=f"Call so far:\n{history}\n\nHandyman just said: {said}"))

@@ -180,7 +180,7 @@ export default function Money() {
             <BigButton testID="plaid-connect-button" icon="lock-closed-outline" label="Connect with Plaid (Sandbox)" loading={linking} onPress={connectPlaid} />
             <Txt v="small">Sandbox login: user_transactions_dynamic / any password (lets you add test deposits). Fake money only.</Txt>
           </View>
-        ) : <Txt v="small" style={{ marginBottom: spacing.md }}>Bank connection isn&apos;t set up yet. Tenant payments made in Doorman still show up here.</Txt>}
+        ) : <Txt v="small" style={{ marginBottom: spacing.md }}>Bank connection isn&apos;t set up yet. Tenant payments made in Homi still show up here.</Txt>}
       </Sheet>
       <Sheet visible={sheet === "plaidsim"} onClose={() => setSheet(null)} title="Plaid Sandbox deposit" testID="plaid-sim-sheet">
         <View style={{ gap: spacing.md }}>

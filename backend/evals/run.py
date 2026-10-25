@@ -1,4 +1,4 @@
-"""Run the Doorman agent evals against the running backend (DEMO_MODE=1) with the real models.
+"""Run the Homi agent evals against the running backend (DEMO_MODE=1) with the real models.
 
     cd /app/backend && python -m evals.run            # all cases + tone eval
     python -m evals.run --only 0,7,14                  # pick cases by number

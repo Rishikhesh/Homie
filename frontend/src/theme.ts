@@ -1,4 +1,4 @@
-// Doorman design tokens (plan section 2A). Light + dark. Components read colors via useTheme()/makeStyles.
+// Homi design tokens (plan section 2A). Light + dark. Components read colors via useTheme()/makeStyles.
 import { useMemo } from "react";
 import { Appearance, StyleSheet, useColorScheme } from "react-native";
 

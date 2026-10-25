@@ -4,7 +4,8 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import Response
 from starlette.middleware.cors import CORSMiddleware
 from core import (db, NF, uid, iso, now, get_user, need, DEMO, APP_NAME, period_of, money, first, tz_for, put_object, get_object, init_storage,
-                  tenant_thread, landlord_thread, post, activity, log, read_file, OPUS, get_media_user, media_token_for)
+                  tenant_thread, landlord_thread, post, activity, log, read_file, OPUS, get_media_user, media_token_for,
+                  is_admin, shared_demo_on, admin_ids)
 import flows
 import agent
 from data import seed_static, create_sample_home, lease_text, doc_hash, pdf_bytes, STATE_RULES, DEPOSIT_MONTHS
@@ -86,7 +87,7 @@ async def pending_invites(user):
 
 @api.get("/auth/me")
 async def me(request: Request, user=Depends(get_user)):
-    res = {"user": user, "acting": bool(user.get("acting_by")), "demo": DEMO,
+    res = {"user": user, "acting": bool(user.get("acting_by")), "demo": DEMO, "is_admin": is_admin(user) and not user.get("acting_by"),
            "media_token": await media_token_for(request.headers["Authorization"][7:])}
     if user.get("acting_by"):
         res["real_user"] = await db.users.find_one({"id": user["acting_by"]}, NF)
@@ -139,7 +140,7 @@ async def accept_invite(iid: str, user=Depends(get_user)):
         await db.onboarding.update_one({"tenant_id": user["id"]}, {"$setOnInsert": {"tenant_id": user["id"], "lease_signed": pre_signed, "insurance": {"done": False}, "utilities": {}}}, upsert=True)
         th = await tenant_thread(user["id"], inv["landlord_id"])
         ll = await db.users.find_one({"id": inv["landlord_id"]}, NF)
-        await post(th["id"], f"Welcome, {first(user['name'])}! I'm Doorman — I look after your home for {first(ll['name'])}. Report a problem, ask about rent or your lease any time.")
+        await post(th["id"], f"Welcome, {first(user['name'])}! I'm Homi — I look after your home for {first(ll['name'])}. Report a problem, ask about rent or your lease any time.")
         await activity(inv["landlord_id"], f"{user['name']} accepted the invite for {u['label']}", None, "system")
     else:
         need(user, "handyman")
@@ -590,14 +591,14 @@ async def get_thread(thread_id: str, after: str | None = None, user=Depends(get_
     if after:
         q["created_at"] = {"$gt": after}
     msgs = [m async for m in db.messages.find(q, NF).sort("created_at", -1).limit(80)]
-    title = "Doorman"
+    title = "Homi"
     if t["kind"] == "job":
         tk = await db.tickets.find_one({"id": t["ticket_id"]}, NF)
         hm = await db.users.find_one({"id": t["handyman_id"]}, NF)
-        title = f"Doorman ↔ {first(hm['name'])} · {tk['title']}"
+        title = f"Homi ↔ {first(hm['name'])} · {tk['title']}"
     elif t["kind"] == "tenant" and user["id"] != t["tenant_id"]:
         tn = await db.users.find_one({"id": t["tenant_id"]}, NF)
-        title = f"Doorman ↔ {first(tn['name'])}"
+        title = f"Homi ↔ {first(tn['name'])}"
     return {"thread": t, "messages": list(reversed(msgs)), "can_write": write, "title": title}
 
 
@@ -612,7 +613,7 @@ async def send_msg(thread_id: str, body: dict, user=Depends(get_user)):
         raise HTTPException(400, "Type a message")
     got = await db.threads.find_one_and_update({"id": thread_id, "busy": {"$ne": True}}, {"$set": {"busy": True, "busy_at": iso()}})
     if not got:
-        raise HTTPException(409, "Doorman is still replying — one moment")
+        raise HTTPException(409, "Homi is still replying — one moment")
     m = await post(thread_id, text, role="user", attachments=atts, sender_id=user["id"])
     if t["kind"] == "job":
         await db.files.update_many({"id": {"$in": atts}}, {"$set": {"ticket_id": t["ticket_id"]}})
@@ -867,7 +868,7 @@ async def extract_lease(body: dict, user=Depends(get_user)):
     except Exception:  # noqa: BLE001
         raise HTTPException(422, "I couldn't open that PDF. Please try another copy")
     if len(text) < 200:
-        raise HTTPException(422, "This PDF has no readable text (it may be a scan). Please upload a typed copy, or prepare the lease in Doorman")
+        raise HTTPException(422, "This PDF has no readable text (it may be a scan). Please upload a typed copy, or prepare the lease in Homi")
     raw = await agent.quick(EXTRACT_SYS, text[:60000], model=OPUS)
     m = re.search(r"\{.*\}", raw or "", re.S)
     try:
@@ -920,7 +921,7 @@ async def save_uploaded_lease(body: dict, user=Depends(get_user)):
     if tenant_id:
         await db.onboarding.update_one({"tenant_id": tenant_id}, {"$set": {"lease_signed": True}}, upsert=True)
         th = await tenant_thread(tenant_id, user["id"])
-        await post(th["id"], f"Your signed lease is now saved in Doorman. You can read it from Home any time, and ask me about it.", cards=[{"type": "doc", "ref_id": le["id"]}])
+        await post(th["id"], f"Your signed lease is now saved in Homi. You can read it from Home any time, and ask me about it.", cards=[{"type": "doc", "ref_id": le["id"]}])
     await activity(user["id"], f"Signed lease uploaded for {unit['label']}", None, "system")
     return le
 
@@ -967,7 +968,7 @@ async def lease_pdf(lid: str, user=Depends(get_media_user)):
         data, _ = await read_file(le["file_id"])
         return Response(data, media_type="application/pdf")
     lines = le["text"].split("\n\n") + ["SIGNATURES:"] + [f"{s['role'].title()}: /{s['typed_name']}/ signed {s['signed_at'][:19].replace('T', ' ')} UTC" for s in le["signatures"]]
-    b = await asyncio.to_thread(pdf_bytes, "Residential Lease", lines, f"Document hash (SHA-256): {le['doc_hash']} · Simulated e-signature by Doorman")
+    b = await asyncio.to_thread(pdf_bytes, "Residential Lease", lines, f"Document hash (SHA-256): {le['doc_hash']} · Simulated e-signature by Homi")
     return Response(b, media_type="application/pdf")
 
 
@@ -1035,8 +1036,30 @@ async def sample_reset(user=Depends(get_user)):
 @api.get("/sample/people")
 async def sample_people(user=Depends(get_user)):
     need(user, "landlord")
-    return [{"id": u["id"], "name": u["name"], "role": u["role"]} async for u in db.users.find({"is_sample": True, "sample_owner_id": user["id"]}, NF)
-            if u["role"] == "tenant" and await db.units.find_one({"tenant_id": u["id"]}) or u["role"] == "handyman" and await db.landlord_handymen.find_one({"handyman_id": u["id"], "landlord_id": user["id"]})]
+    owners = [user["id"]]
+    if await shared_demo_on():
+        owners += [a for a in await admin_ids() if a != user["id"]]
+    out = []
+    for owner in owners:
+        async for u in db.users.find({"is_sample": True, "sample_owner_id": owner}, NF):
+            if (u["role"] == "tenant" and await db.units.find_one({"tenant_id": u["id"]})
+                    or u["role"] == "handyman" and await db.landlord_handymen.find_one({"handyman_id": u["id"], "landlord_id": owner})):
+                out.append({"id": u["id"], "name": u["name"], "role": u["role"], "shared": owner != user["id"]})
+    return out
+
+
+@api.get("/admin/shared-demo")
+async def get_shared_demo(user=Depends(get_user)):
+    return {"on": await shared_demo_on(), "is_admin": is_admin(user)}
+
+
+@api.post("/admin/shared-demo")
+async def set_shared_demo(body: dict, user=Depends(get_user)):
+    if user.get("acting_by") or not is_admin(user):
+        raise HTTPException(403, "Only an admin can change the shared demo")
+    on = bool(body.get("on"))
+    await db.app_settings.update_one({"key": "shared_demo"}, {"$set": {"key": "shared_demo", "on": on, "by": user["id"], "updated_at": iso()}}, upsert=True)
+    return {"on": on}
 
 
 app.include_router(api)

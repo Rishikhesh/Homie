@@ -15,6 +15,21 @@ DEMO = os.environ.get("DEMO_MODE") == "1"
 LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
 APP_NAME = os.environ.get("APP_NAME", "rentwise")
 FOLLOWUP = int(os.environ.get("DEMO_FOLLOWUP_SECONDS", "60"))
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "rishiyashvanth@gmail.com").split(",") if e.strip()}
+
+
+def is_admin(user) -> bool:
+    return (user.get("email") or "").lower() in ADMIN_EMAILS
+
+
+async def shared_demo_on() -> bool:
+    s = await db.app_settings.find_one({"key": "shared_demo"}, NF)
+    return bool(s and s.get("on"))
+
+
+async def admin_ids() -> list:
+    """Ids of admin accounts whose sample people are shared while the shared demo is on."""
+    return [u["id"] async for u in db.users.find({"email": {"$in": list(ADMIN_EMAILS)}, "is_sample": {"$ne": True}}, {"_id": 0, "id": 1})]
 NF = {"_id": 0}
 
 # Models (single place)
@@ -131,6 +146,8 @@ async def _session_user(s, request: Request) -> dict:
     act = request.headers.get("X-Act-As") or request.query_params.get("act")
     if act and user.get("role") == "landlord" and act != user["id"]:
         t = await db.users.find_one({"id": act, "is_sample": True, "sample_owner_id": user["id"]}, NF)
+        if not t and await shared_demo_on():
+            t = await db.users.find_one({"id": act, "is_sample": True, "sample_owner_id": {"$in": await admin_ids()}}, NF)
         if not t:
             raise HTTPException(403, "You can only try your own sample people")
         t["acting_by"] = user["id"]

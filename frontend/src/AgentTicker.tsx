@@ -1,4 +1,4 @@
-// "Doorman at work": a live-looking feed of tasks the agent finishes for a rental — working… → done ✓, one after another.
+// "Homi at work": a live-looking feed of tasks the agent finishes for a rental — working… → done ✓, one after another.
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import Animated, { FadeInDown, FadeOutUp, useReducedMotion } from "react-native-reanimated";
@@ -32,7 +32,7 @@ export function AgentTicker() {
           <Ionicons name={t.icon as any} size={19} color={done ? colors.good : colors.brandPrimary} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Txt v="caption" style={{ fontSize: 12 }}>DOORMAN · {done ? "DONE" : "WORKING"}</Txt>
+          <Txt v="caption" style={{ fontSize: 12 }}>HOMI · {done ? "DONE" : "WORKING"}</Txt>
           <Txt v="label" numberOfLines={1} style={{ flexShrink: 1 }}>{done ? t.done : t.work}</Txt>
         </View>
         {done ? <Ionicons testID="agent-ticker-done" name="checkmark-circle" size={22} color={colors.good} /> : <ActivityIndicator size="small" color={colors.brandPrimary} />}

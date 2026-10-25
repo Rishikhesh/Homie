@@ -120,7 +120,7 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
         data={[...msgs].reverse()}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
-        ListHeaderComponent={busy ? <View testID="chat-typing" style={{ alignSelf: "flex-start", padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTertiary }}><AgentMark small /><Txt v="small">Doorman is typing…</Txt></View> : undefined}
+        ListHeaderComponent={busy ? <View testID="chat-typing" style={{ alignSelf: "flex-start", padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.brandTertiary }}><AgentMark small /><Txt v="small">Homi is typing…</Txt></View> : undefined}
         renderItem={({ item: m }) => {
           const mine = m.role === "user" && m.sender_id === me?.user?.id;
           const user = m.role === "user";
@@ -156,7 +156,7 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
         </View>
       ) : data ? (
         <View style={{ padding: spacing.lg, paddingBottom: bottomPad + spacing.lg, borderTopWidth: 0.5, borderTopColor: colors.border }}>
-          <Txt v="small">{readOnlyNote || "Read-only. Doorman handles this conversation for you."}</Txt>
+          <Txt v="small">{readOnlyNote || "Read-only. Homi handles this conversation for you."}</Txt>
         </View>
       ) : null}
     </KeyboardAvoidingView>

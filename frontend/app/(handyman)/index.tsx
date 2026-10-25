@@ -16,7 +16,7 @@ function OfferCard({ t, index }: { t: any; index: number }) {
   const age = ago(t.created_at);
   return (
     <StripCard kind="you" index={index} testID={`ticket-row-${t.id}`} style={{ gap: spacing.md }}>
-      {t.missed_call ? <Row testID={`missed-call-${t.id}`}><Ionicons name="call" size={18} color={colors.you} /><Txt v="label" color={colors.you}>Missed call from Doorman</Txt></Row> : null}
+      {t.missed_call ? <Row testID={`missed-call-${t.id}`}><Ionicons name="call" size={18} color={colors.you} /><Txt v="label" color={colors.you}>Missed call from Homi</Txt></Row> : null}
       <Row><Ionicons name={tradeIcon(t.trade) as any} size={20} color={colors.you} /><Txt v="h2" style={{ flex: 1 }} numberOfLines={1}>{t.title} · {t.city}</Txt></Row>
       <BigNumber value={t.urgency === "emergency" ? "Now" : age === "just now" || age.includes("min") || age.includes(" h ") ? "Today" : age} caption={t.urgency === "emergency" ? "Emergency" : "New"} small />
       {t.photos?.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>{t.photos.map((p: string) => <FileImage key={p} id={p} size={96} />)}</ScrollView> : null}

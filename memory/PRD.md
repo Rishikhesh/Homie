@@ -1,7 +1,7 @@
-# Doorman — PRD
+# Homi — PRD
 
 ## Original problem
-Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman") stands in for small US landlords (1–10 homes). It onboards tenants, answers lease and state-law questions, tracks rent and coordinates repairs on its own. The landlord only taps to approve money. The user chose to **build the full plan in one go**, with sample data so features can be tried in a demo account.
+Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Homi") stands in for small US landlords (1–10 homes). It onboards tenants, answers lease and state-law questions, tracks rent and coordinates repairs on its own. The landlord only taps to approve money. The user chose to **build the full plan in one go**, with sample data so features can be tried in a demo account.
 
 ## Architecture
 - Expo Router app, using the design system from section 2A (Plus Jakarta Sans, light and dark themes in `src/theme.ts`). Native tabs on iOS 26+, standard tabs elsewhere.
@@ -23,7 +23,7 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 ## Implemented (2026-06)
 - **Sign-in:** Google only, then role choice. Landlords pick a sample home or start empty. Tenants accept an in-app invite or see a no-invite screen. Handymen set up trades, ZIP and phone. Users can switch account.
 - **Landlord:**
-  - Home: Needs you approvals, Agent at work feed, stats including "Fixed without you", Ask Doorman chat
+  - Home: Needs you approvals, Agent at work feed, stats including "Fixed without you", Ask Homi chat
   - Tickets: stacked sections, ticket detail with timeline and read-only agent chats
   - Properties: add (whole home or rooms, ZIP lookup, photo), detail with house rules, utilities, state rules, invites and leases
   - Handymen: my list, invite, marketplace with trade filter, handyman detail
@@ -71,7 +71,7 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 ## Voice in chat (June 2026) — DONE, tested (iteration_11 + fixes)
 - Read aloud (Emergent TTS, tts-1 "coral", cached) on agent replies; tap-to-talk mic (Emergent STT gpt-4o-mini-transcribe) fills the message box.
 - Fixes after testing: audio format detected from file bytes (web webm / phone m4a), unclear audio returns friendly 422, read-aloud permission matches chat read rules, failed playback shows toast, icon-only send button for wider message box.
-- Hands-free mode (DONE, iteration_12): switch at top of chat (remembered). When on, spoken messages send automatically and the first Doorman reply after them is read aloud.
+- Hands-free mode (DONE, iteration_12): switch at top of chat (remembered). When on, spoken messages send automatically and the first Homi reply after them is read aloud.
 
 ## Visual language pass ("See it, don't read it") — June 2026 (visual-language-prompt.md)
 - Foundation: src/status.ts (statusOf → good/waiting/you/none, shared fixture src/status.fixture.json), theme status colors (amber #B26A00 contrast fix), src/visual.tsx (Status, StripCard, BigNumber, Tracker, PersonChip, TimeChoice, YesNo, Countdown, MoneyCard, PhotoPair, DocTile, IconRow, More, SuccessBurst), /visual-qa screen (DEMO only, Settings link).
@@ -83,7 +83,7 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 - Open polish: statement PDF ISO dates, "Handym…" tab label at 360px.
 
 ## Handyman calls (voice-calls-prompt.md) — June 2026
-- The choice lives only with the handyman: Profile → "How Doorman contacts you" (handymen.contact_pref, default message). No landlord setting (removed at the user's request); landlords only see a read-only "Prefers calls/messages" label.
+- The choice lives only with the handyman: Profile → "How Homi contacts you" (handymen.contact_pref, default message). No landlord setting (removed at the user's request); landlords only see a read-only "Prefers calls/messages" label.
 - In-app ringing only (no push; user choice). Emergent STT/TTS (VOICE_PROVIDER=emergent; elevenlabs stub falls back).
 - backend/calls.py (calls collection, ring 45s/DEMO 20s, 5-min cap, atomic moves, fallback to text offer, call agent with accept_job/decline_job/end_call → existing handyman_accept/decline), flows.offer_job hook + post_offer, tick: emergency 15-min window, tick_calls.
 - Frontend: app/call/[id].tsx (ringing / hold-to-talk / type instead / hang up / landlord transcript), src/call/IncomingCallWatcher (3 s poll in handyman layout), ChoiceCards in welcome, profile, settings; "Prefers calls" label; missed-call label; timeline call rows → transcript.
@@ -107,3 +107,10 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 
 ## Sign-in illustration — June 2026
 - Login is text-only now (big two-tone headline + ticker + Google button); LoginHero.tsx removed.
+Note: app renamed Homi → Homi (June 2026).
+
+## Shared demo admin toggle — June 2026 (tests/test_shared_demo.py)
+- ADMIN_EMAILS env (backend/.env: rishiyashvanth@gmail.com, turzobose@gmail.com). /auth/me → is_admin.
+- db.app_settings {key:"shared_demo", on}. GET/POST /api/admin/shared-demo (POST admin-only).
+- On: other landlords may X-Act-As admins' sample people; /sample/people adds them with shared=true. Off: own sample people only. DEMO_MODE unchanged.
+- Settings → "Admin · Shared demo" switch (src/SharedDemoSwitch.tsx), shown only to admins.

@@ -7,6 +7,7 @@ import { useAuth } from "@/src/auth";
 import { BigButton, Card, ConfirmSheet, Divider, Field, LargeHeader, Row, Screen, Section, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
 import { useTheme } from "@/src/theme";
 import { AutoHistory } from "@/src/AutoHistory";
+import { SharedDemoSwitch } from "@/src/SharedDemoSwitch";
 
 export default function Settings() {
   const router = useRouter();
@@ -43,7 +44,7 @@ export default function Settings() {
         </Section>
       ) : null}
       {isLandlord ? (
-        <Section title="What Doorman follows" testID="policies-section">
+        <Section title="What Homi follows" testID="policies-section">
           <Card agent>
             {(s.policies || []).map((p: string, i: number) => (
               <Row key={i} style={{ justifyContent: "space-between" }}>
@@ -54,10 +55,10 @@ export default function Settings() {
             {!s.policies?.length ? <Txt v="small">e.g. “Hank for plumbing”, “No visits before 9 am”. Money always needs your tap, except repairs under your auto-OK limit.</Txt> : null}
           </Card>
           <Field testID="policy-input" label="Add an instruction" value={pol} onChangeText={setPol} placeholder="Use the marketplace only if my handymen are busy" />
-          <BigButton testID="policy-add" tone="soft" label="Add" disabled={!pol.trim()} onPress={() => { save({ policies: [...(s.policies || []), pol.trim()] }, "Doorman will follow this"); setPol(""); }} />
+          <BigButton testID="policy-add" tone="soft" label="Add" disabled={!pol.trim()} onPress={() => { save({ policies: [...(s.policies || []), pol.trim()] }, "Homi will follow this"); setPol(""); }} />
         </Section>
       ) : null}
-      <Section title="What Doorman remembers" testID="facts-section">
+      <Section title="What Homi remembers" testID="facts-section">
         <Card>
           {(facts.data || []).map((f: any, i: number) => (
             <View key={f.id}>{i ? <Divider /> : null}
@@ -67,13 +68,14 @@ export default function Settings() {
               </Row>
             </View>
           ))}
-          {!facts.data?.length ? <Txt v="small">Nothing saved yet. Doorman remembers helpful facts like pets or gate codes.</Txt> : null}
+          {!facts.data?.length ? <Txt v="small">Nothing saved yet. Homi remembers helpful facts like pets or gate codes.</Txt> : null}
         </Card>
       </Section>
+      {me?.is_admin ? <SharedDemoSwitch onChange={() => people.reload()} /> : null}
       {isLandlord && people.data?.length ? (
         <Section title="Try it yourself" testID="sample-section" right={<StatusPill label="Sample home" tone="brand" />}>
           <Txt v="body" color={colors.muted}>See exactly what your tenant or handyman sees, on this phone.</Txt>
-          {people.data.map((p: any) => <BigButton key={p.id} tone="soft" testID={`try-as-${p.name.split(" ")[0].toLowerCase()}`} icon="swap-horizontal" label={`Try as ${p.name.split(" ")[0]} (${p.role})`} onPress={async () => { await actAs(p.id); router.replace(`/(${p.role})` as any); }} />)}
+          {people.data.map((p: any) => { const f = p.name.split(" ")[0]; return <BigButton key={p.id} tone="soft" testID={`try-as-${p.shared ? "shared-" : ""}${f.toLowerCase()}`} icon="swap-horizontal" label={`Try as ${f} (${p.role}${p.shared ? " · shared demo" : ""})`} onPress={async () => { await actAs(p.id); router.replace(`/(${p.role})` as any); }} />; })}
           <TextButton testID="sample-reset-button" label="Reset sample data" color={colors.error} onPress={() => setReset(true)} />
         </Section>
       ) : null}

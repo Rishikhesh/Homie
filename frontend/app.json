@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Doorman",
+    "name": "Homi",
     "slug": "frontend",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -12,8 +12,8 @@
       "bundleIdentifier": "com.emergent.rentwise.rr6gw5",
       "infoPlist": {
         "NSCameraUsageDescription": "Snap repair photos so the right fix arrives",
-        "NSPhotoLibraryUsageDescription": "Share repair photos and receipts with Doorman",
-        "NSMicrophoneUsageDescription": "Talk to Doorman and record room videos"
+        "NSPhotoLibraryUsageDescription": "Share repair photos and receipts with Homi",
+        "NSMicrophoneUsageDescription": "Talk to Homi and record room videos"
       }
     },
     "android": {
@@ -56,7 +56,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Share repair photos and receipts with Doorman",
+          "photosPermission": "Share repair photos and receipts with Homi",
           "cameraPermission": "Snap repair photos so the right fix arrives"
         }
       ],

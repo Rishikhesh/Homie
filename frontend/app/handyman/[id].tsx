@@ -22,7 +22,7 @@ export default function HandymanDetail() {
           <Avatar name={h.name} size={56} />
           <View style={{ flex: 1 }}>
             <Txt v="label">★ {h.rating_avg?.toFixed?.(1) || "New"} · {h.rating_count || 0} ratings</Txt>
-            <Txt v="small">{h.jobs_done || 0} jobs on Doorman</Txt>
+            <Txt v="small">{h.jobs_done || 0} jobs on Homi</Txt>
           </View>
         </Row>
         <Txt v="caption" style={{ marginTop: spacing.md }}>You&apos;ve paid</Txt>

@@ -37,12 +37,12 @@ def lease_text(terms, prop, unit, landlord_name, tenant_name):
     sec = [
         f"RESIDENTIAL LEASE AGREEMENT. This lease is between {landlord_name} (Landlord) and {tenant_name} (Tenant) for {unit['label']} at {prop['address']}, {prop['city']}, {prop['state']} {prop.get('zip', '')}.",
         f"1. TERM. The lease starts on {t['start']} and ends on {t['end']}. After that it continues month to month unless either side gives {t.get('notice_days', 30)} days written notice.",
-        f"2. RENT. Rent is {money(t['rent'])} per month, due on day {t.get('due_day', 1)} of each month, paid through Doorman.",
+        f"2. RENT. Rent is {money(t['rent'])} per month, due on day {t.get('due_day', 1)} of each month, paid through Homi.",
         f"3. LATE FEE. If rent is more than 5 days late, a late fee of {money(t.get('late_fee', 0))} applies.",
         f"4. SECURITY DEPOSIT. Tenant pays a deposit of {money(t.get('deposit', 0))}. It is returned within the time required by {prop['state']} law, minus lawful deductions.",
         f"5. PETS. {t.get('pets') or 'No pets without written permission from the Landlord.'}",
         f"6. UTILITIES. {t.get('utilities') or 'Tenant sets up and pays electric, gas and internet in their own name.'}",
-        "7. REPAIRS. Tenant reports problems through Doorman. Landlord arranges repairs in a reasonable time. Tenant must not cause damage beyond normal wear and tear.",
+        "7. REPAIRS. Tenant reports problems through Homi. Landlord arranges repairs in a reasonable time. Tenant must not cause damage beyond normal wear and tear.",
         f"8. ENTRY. Landlord may enter with notice as required by {prop['state']} law, except in emergencies.",
         f"9. HOUSE RULES. {prop.get('house_rules') or 'Be considerate of neighbours.'}",
         "10. INSURANCE. Tenant keeps renters insurance during the lease.",
@@ -150,7 +150,7 @@ async def create_sample_home(landlord_id, real_tenant_id=None, real_handyman_id=
             await db.payments.insert_one({"id": pay, "unit_id": u["id"], "tenant_id": tn["id"], "landlord_id": landlord_id, "period": p, "kind": "rent",
                                           "amount": u["rent"], "date": f"{p}-{day}T18:00:00+00:00", "source": "bank_sim", "bank_txn_id": txn, "status": "recorded"})
             await db.bank_txns.insert_one({"id": txn, "landlord_id": landlord_id, "date": f"{p}-{day}T18:00:00+00:00", "amount": u["rent"], "sender_name": tn["name"],
-                                           "memo": "Doorman transfer", "status": "matched", "payment_id": pay})
+                                           "memo": "Homi transfer", "status": "matched", "payment_id": pay})
     await db.bank_txns.insert_one({"id": uid(), "landlord_id": landlord_id, "date": iso(now() - timedelta(days=2)), "amount": 60.0, "sender_name": "M LOPEZ ZELLE",
                                    "memo": "utilities share", "status": "review", "payment_id": None})
     # closed March ticket
@@ -167,6 +167,6 @@ async def create_sample_home(landlord_id, real_tenant_id=None, real_handyman_id=
     await db.memory_facts.insert_one({"id": uid(), "scope": "tenant", "scope_id": tom["id"], "text": "Tom has a friendly cat", "source": "agent", "created_at": iso()})
     for tn in (tom, maria):
         th = await tenant_thread(tn["id"], landlord_id)
-        await post(th["id"], f"Hi {tn['name'].split()[0]}, I'm Doorman — I look after Maple House for {landlord['name'].split()[0]}. Report a problem, ask about rent or your lease any time.")
+        await post(th["id"], f"Hi {tn['name'].split()[0]}, I'm Homi — I look after Maple House for {landlord['name'].split()[0]}. Report a problem, ask about rent or your lease any time.")
     await db.activity.insert_one({"id": uid(), "landlord_id": landlord_id, "ticket_id": None, "text": "Sample home ready: Maple House with Tom, Maria and Hank", "kind": "system", "created_at": iso()})
     return {"property_id": pid, "tom": tom["id"], "maria": maria["id"], "hank": hank["id"]}

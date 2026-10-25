@@ -39,7 +39,7 @@ export function ReportInsights({ propertyId, year, onChanged }: { propertyId: st
       <Card agent testID="report-insights-cta" style={{ gap: spacing.sm, marginBottom: spacing.xl }}>
         <AgentMark />
         <Txt v="label">Find money you&apos;re missing</Txt>
-        <Txt v="small">Doorman checks vacancies, late rent, missed deductions and repair spend.</Txt>
+        <Txt v="small">Homi checks vacancies, late rent, missed deductions and repair spend.</Txt>
         {busy ? <Skeleton height={70} count={2} /> : <BigButton testID="report-check-button" icon="sparkles" label="Get insights" onPress={run} />}
       </Card>
     );

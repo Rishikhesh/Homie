@@ -21,7 +21,7 @@ export default function ThreadScreen() {
         <TextButton testID="thread-back-button" icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Ionicons name="sparkles" size={16} color={colors.brandPrimary} />
-          <Txt v="label" numberOfLines={1} style={{ flex: 1 }}>{data?.title || "Doorman"}</Txt>
+          <Txt v="label" numberOfLines={1} style={{ flex: 1 }}>{data?.title || "Homi"}</Txt>
         </View>
       </View>
       <Chat threadId={id!} bottomPad={ins.bottom} quickReplies={kind === "landlord" ? ["Who's late?", "What did I spend on repairs?", "Prefer Hank for plumbing"] : []} />

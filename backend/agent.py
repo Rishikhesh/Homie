@@ -1,4 +1,4 @@
-"""The Doorman agent: three seats, tools, memory, guard rails."""
+"""The Homi agent: three seats, tools, memory, guard rails."""
 import json, base64, re, traceback
 from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
 from core import (db, NF, uid, iso, LLM_KEY, SONNET, HAIKU, QUIET_TENANT, post, activity, timeline, money, first,
@@ -6,7 +6,7 @@ from core import (db, NF, uid, iso, LLM_KEY, SONNET, HAIKU, QUIET_TENANT, post, 
 import flows
 from data import STATE_RULES
 
-PERSONA = """You are Doorman, the AI stand-in for a small US landlord. You speak FOR the landlord: calm, warm, competent. You decide and give clear next steps.
+PERSONA = """You are Homi, the AI stand-in for a small US landlord. You speak FOR the landlord: calm, warm, competent. You decide and give clear next steps.
 HOW YOU WRITE (many readers are older and don't want to read):
 - Reply in ONE short sentence, at most 12 plain words. Count them. e.g. "Got it. Hank is on it." / "Rent is $1,200, due the 1st." No sympathy openers ("Sorry about that."), no second sentence. Only if more is truly needed, add a second paragraph starting with "DETAILS:" — it is hidden behind "More".
 - If the reply is about something with a state (a repair, rent, a booking, money, a document, the move-out), attach the card with show_card instead of describing it in words. Repair tools attach the repair card for you.
@@ -108,8 +108,8 @@ async def quick(system, text, model=HAIKU):
 
 async def reword(text, audience, about=""):
     clean = strip_contacts(text)
-    out = await quick("Rewrite the message as Doorman (a calm property agent) relaying it to the " + audience +
-                      ". One or two short sentences, warm, first person as Doorman. Never start with 'From'. No phone numbers or emails. Output only the message.",
+    out = await quick("Rewrite the message as Homi (a calm property agent) relaying it to the " + audience +
+                      ". One or two short sentences, warm, first person as Homi. Never start with 'From'. No phone numbers or emails. Output only the message.",
                       f"Context: {about}\nMessage: {clean}")
     return strip_contacts(out or clean)
 
@@ -175,7 +175,7 @@ async def build_system(thread, user):
     msgs = [m async for m in db.messages.find({"thread_id": thread["id"]}, NF).sort("created_at", -1).limit(21)]
     msgs = list(reversed(msgs))[:-1]
     if msgs:
-        parts.append("RECENT CONVERSATION:\n" + "\n".join(f"{'Doorman' if m['role'] != 'user' else 'Them'}: {m['text']}" + (f" [photos: {','.join(m['attachments'])}]" if m.get("attachments") else "") for m in msgs))
+        parts.append("RECENT CONVERSATION:\n" + "\n".join(f"{'Homi' if m['role'] != 'user' else 'Them'}: {m['text']}" + (f" [photos: {','.join(m['attachments'])}]" if m.get("attachments") else "") for m in msgs))
     return "\n\n".join(parts)
 
 
@@ -261,7 +261,7 @@ async def run_tool(name, a, user, thread, cards):
         res = [m["text"] async for m in db.messages.find({"thread_id": thread["id"], "$text": {"$search": a["query"]}}, NF).limit(5)]
         return {"matches": res}
     if name == "flag_landlord":
-        await flows.create_approval(thread["landlord_id"], "other", 0, ticket_id=a.get("ticket_id"), title="Doorman needs you", reason=a["reason"], recommendation="✦ I'll follow your lead on this one.")
+        await flows.create_approval(thread["landlord_id"], "other", 0, ticket_id=a.get("ticket_id"), title="Homi needs you", reason=a["reason"], recommendation="✦ I'll follow your lead on this one.")
         await activity(thread["landlord_id"], f"Flagged for you: {a['reason'][:80]}", a.get("ticket_id"))
         return {"ok": True}
     if name == "suggest_move_out" and kind == "tenant":

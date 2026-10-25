@@ -55,7 +55,7 @@ export default function PropertyDetail() {
         ))}
       </Section>
       <Section title="House rules" testID="rules-section" right={<TextButton testID="edit-rules-button" label="Edit" onPress={() => setRules(p.house_rules || "")} />}>
-        <Card><Txt v="body">{p.house_rules || "No rules yet. Doorman follows whatever you write here."}</Txt></Card>
+        <Card><Txt v="body">{p.house_rules || "No rules yet. Homi follows whatever you write here."}</Txt></Card>
       </Section>
       <Section title="Utilities" testID="utilities-section">
         <Card>{["electric", "gas", "internet"].map((k) => <Txt key={k} v="body">{k[0].toUpperCase() + k.slice(1)}: {p.utilities?.[k] || "—"}</Txt>)}</Card>
@@ -87,7 +87,7 @@ export default function PropertyDetail() {
         ) : null}
       </Sheet>
       <Sheet visible={!!inv} onClose={() => setInv(null)} title={`Invite a tenant to ${inv?.label}`} testID="invite-tenant-sheet">
-        <Field testID="invite-tenant-email" label="Tenant's Google email" placeholder="name@gmail.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see the invite when they sign in to Doorman as a tenant. No email is sent." />
+        <Field testID="invite-tenant-email" label="Tenant's Google email" placeholder="name@gmail.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see the invite when they sign in to Homi as a tenant. No email is sent." />
         <BigButton testID="invite-tenant-send" style={{ marginTop: spacing.lg }} label="Create invite" onPress={async () => { try { await api(`/units/${inv.id}/invite`, { body: { email, replace: !!inv.replace } }); toast("Invite created"); setInv(null); setEmail(""); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
       </Sheet>
       <Sheet visible={rules !== null} onClose={() => setRules(null)} title="House rules" testID="rules-sheet">

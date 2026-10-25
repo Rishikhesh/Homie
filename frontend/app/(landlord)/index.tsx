@@ -48,9 +48,9 @@ export default function LandlordHome() {
               <Txt v="label" color={colors.you} style={{ flex: 1 }}>Need your OK</Txt>
             </View>
           ) : (
-            <StripCard kind="good" testID="needs-you-empty" style={{ marginBottom: spacing.lg }}><Status kind="good" label="All good. Doorman is handling it." /></StripCard>
+            <StripCard kind="good" testID="needs-you-empty" style={{ marginBottom: spacing.lg }}><Status kind="good" label="All good. Homi is handling it." /></StripCard>
           )}
-          <BigButton testID="ask-rentwise-button" tone="soft" icon="sparkles" label="Ask Doorman" onPress={async () => { const t = await api("/threads/mine"); router.push(`/thread/${t.id}`); }} style={{ marginBottom: spacing.xl }} />
+          <BigButton testID="ask-rentwise-button" tone="soft" icon="sparkles" label="Ask Homi" onPress={async () => { const t = await api("/threads/mine"); router.push(`/thread/${t.id}`); }} style={{ marginBottom: spacing.xl }} />
           {needs ? (
             <Section title="To do" testID="needs-you-section">
               {data.leases_to_sign.map((l: any) => (
@@ -83,7 +83,7 @@ export default function LandlordHome() {
           <Section title="Homes" testID="homes-section">
             {(ov.data?.properties || []).map((p: any) => <HomeCard key={p.property.id} testID={`home-card-${p.property.id}`} p={p.property} units={p.units} onPress={() => router.push(`/property/${p.property.id}`)} />)}
           </Section>
-          <Section title="Doorman this week" testID="agent-feed-section">
+          <Section title="Homi this week" testID="agent-feed-section">
             <Card>
               <Row testID="stat-fixed-without-you">
                 <Counter testID="stat-open-tickets" icon="construct" n={repairs} label="repairs" />

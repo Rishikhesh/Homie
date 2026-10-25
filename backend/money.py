@@ -141,7 +141,7 @@ async def pay_rent(body: dict, user=Depends(get_user)):
         if not await db.locks.find_one_and_update({"key": key, "expires_at": {"$lt": iso()}}, {"$set": {"expires_at": lock_until}}):
             raise HTTPException(409, "This payment is already being processed")
     try:
-        source, memo, xfer = "app_sim", f"Doorman transfer from {user['name']}", None
+        source, memo, xfer = "app_sim", f"Homi transfer from {user['name']}", None
         if body.get("method") == "bank":  # real Plaid Transfer (sandbox): money moves before we record it
             from transfers import charge
             xfer = await charge(user, unit, float(amt), key, kind)
@@ -175,7 +175,7 @@ async def receipt_pdf(pid: str, user=Depends(get_media_user)):
     lines = [f"Received from: {t['name']}", f"Home: {unit['label']}, {prop['address']}, {prop['city']} {prop['state']}",
              f"For: {'Security deposit' if p['kind'] == 'deposit' else month_name(p['period']) + ' ' + p['period'][:4] + ' rent'}",
              f"Amount: {money(p['amount'])}", f"Date: {p['date'][:10]}", f"Reference: {p['id']}"]
-    b = await asyncio.to_thread(pdf_bytes, "Rent receipt", lines, "Paid by bank transfer through Plaid (sandbox test money)." if p.get("source") == "plaid_transfer" else "Simulated payment recorded by Doorman.")
+    b = await asyncio.to_thread(pdf_bytes, "Rent receipt", lines, "Paid by bank transfer through Plaid (sandbox test money)." if p.get("source") == "plaid_transfer" else "Simulated payment recorded by Homi.")
     return Response(b, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename=receipt-{pid}.pdf"})
 
 
@@ -345,7 +345,7 @@ async def report_export(pid: str, fmt: str = "pdf", year: int | None = None, use
         lines.append(f"  Deposit kept for damages: {money(r['deposit_kept'])}")
     lines += [f"Line {ln['line']} · {ln['category']}: {money(ln['amount'])}" for ln in r["expense_lines"]]
     lines += [f"Total expenses: {money(r['total_expenses'])}", f"Net: {money(r['net'])}", f"Security deposits received this year (not income, excluded): {money(r['deposits_excluded'])}"]
-    b = await asyncio.to_thread(pdf_bytes, f"Schedule E summary {r['year']}", lines, "Prepared by Doorman. Not tax advice — check with your tax professional.")
+    b = await asyncio.to_thread(pdf_bytes, f"Schedule E summary {r['year']}", lines, "Prepared by Homi. Not tax advice — check with your tax professional.")
     return Response(b, media_type="application/pdf", headers={"Content-Disposition": "inline; filename=schedule-e.pdf"})
 
 

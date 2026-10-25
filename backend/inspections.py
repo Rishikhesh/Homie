@@ -401,7 +401,7 @@ async def analyze(iid, jev_fn=None, sonnet_fn=None):
                                     reason=f"Refund {money(st['refund'])} of {money(st['deposit'])}. Due by {st['due_by']}.",
                                     recommendation="✦ Check the charges, edit anything, then approve.", extra={"statement_id": st["id"]})
         need_review = sum(1 for i in items if i["category"] in ("damage", "check"))
-        await activity(mo["landlord_id"], f"Doorman compared {unit['label']}: {stats['pairs_screened']} views checked, {need_review} need your review.", None, "system")
+        await activity(mo["landlord_id"], f"Homi compared {unit['label']}: {stats['pairs_screened']} views checked, {need_review} need your review.", None, "system")
     except Exception as e:  # noqa: BLE001
         log.exception("analysis failed")
         await db.inspections.update_one({"id": iid}, {"$set": {"status": "submitted", "error": str(e)[:200]}})
@@ -718,7 +718,7 @@ def statement_pdf(v):
     lines += ["", f"Deposit: {money(v['deposit'])}", f"Deductions: {money(v['total_deductions'])}", f"Refund: {money(v['refund'])}",
               f"State: {rules.get('name', v['state'])} — deposit must be returned within {v.get('return_days')} days (by {v['due_by']}).",
               f"Date sent: {(v.get('sent_at') or iso())[:10]}"]
-    return pdf_bytes("Itemized deposit statement", lines, "Prepared by Doorman. Normal wear and conditions present at move-in are never charged.")
+    return pdf_bytes("Itemized deposit statement", lines, "Prepared by Homi. Normal wear and conditions present at move-in are never charged.")
 
 
 @router.get("/statements/{sid}/pdf")

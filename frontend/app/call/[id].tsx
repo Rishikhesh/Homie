@@ -1,4 +1,4 @@
-// Doorman calling a handyman: ringing → in call (hold to talk) → ended. Landlords open the same route read-only as a transcript.
+// Homi calling a handyman: ringing → in call (hold to talk) → ended. Landlords open the same route read-only as a transcript.
 import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { router as nav, useLocalSearchParams, useRouter } from "expo-router";
@@ -140,7 +140,7 @@ export default function CallScreen() {
       const cur = await AudioModule.getRecordingPermissionsAsync();
       const perm = cur.granted ? cur : cur.canAskAgain ? await AudioModule.requestRecordingPermissionsAsync() : cur;
       if (!perm.granted) {
-        if (!perm.canAskAgain) toast("Microphone is off. Turn it on in Settings, or type instead", "error"); else toast("Doorman needs the microphone to hear you. You can type instead", "error");
+        if (!perm.canAskAgain) toast("Microphone is off. Turn it on in Settings, or type instead", "error"); else toast("Homi needs the microphone to hear you. You can type instead", "error");
         if (!perm.canAskAgain) Linking.openSettings();
         setTyping(true);
         return;
@@ -174,7 +174,7 @@ export default function CallScreen() {
       <View testID="incoming-call-screen" style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + spacing.xxl, paddingBottom: insets.bottom + spacing.xl, alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ alignItems: "center", gap: spacing.lg }}>
           <PulseRing><Avatar /></PulseRing>
-          <Txt v="title">Doorman is calling</Txt>
+          <Txt v="title">Homi is calling</Txt>
           <Txt v="body" style={{ textAlign: "center", paddingHorizontal: spacing.xl }}>New job · {c.title}</Txt>
         </View>
         <View style={{ flexDirection: "row", gap: spacing.xxl }}>
@@ -199,12 +199,12 @@ export default function CallScreen() {
   return (
     <View testID="in-call-screen" style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.md }}>
       <View style={{ alignItems: "center", gap: 4, paddingBottom: spacing.md }}>
-        <Txt v="h2">Doorman</Txt>
+        <Txt v="h2">Homi</Txt>
         <Txt testID="call-timer" v="label" color={colors.muted}>{state === "ended" ? "Call ended" : mmss(elapsed)}</Txt>
       </View>
       <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}>
         {turns.map((t, i) => <Bubble key={i} who={t.who} text={t.text} audio={t.audio_url} />)}
-        {state === "thinking" ? <View testID="call-thinking" style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}><ActivityIndicator color={colors.brandPrimary} /><Txt v="label" color={colors.muted}>Doorman is thinking…</Txt></View> : null}
+        {state === "thinking" ? <View testID="call-thinking" style={{ flexDirection: "row", gap: spacing.sm, alignItems: "center" }}><ActivityIndicator color={colors.brandPrimary} /><Txt v="label" color={colors.muted}>Homi is thinking…</Txt></View> : null}
       </ScrollView>
       {state !== "ended" ? (
         <View style={{ alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg }}>
