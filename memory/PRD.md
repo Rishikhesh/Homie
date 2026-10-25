@@ -83,7 +83,7 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Rentwise
 - Open polish: statement PDF ISO dates, "Handym…" tab label at 360px.
 
 ## Handyman calls (voice-calls-prompt.md) — June 2026
-- Off everywhere until turned on (user choice, no server flag): landlord Settings "Calling handymen" (users.handyman_calls) AND handyman "How Rentwise contacts you" = Call me (handymen.contact_pref, default message). Call happens only if both.
+- The choice lives only with the handyman: Profile → "How Rentwise contacts you" (handymen.contact_pref, default message). No landlord setting (removed at the user's request); landlords only see a read-only "Prefers calls/messages" label.
 - In-app ringing only (no push; user choice). Emergent STT/TTS (VOICE_PROVIDER=emergent; elevenlabs stub falls back).
 - backend/calls.py (calls collection, ring 45s/DEMO 20s, 5-min cap, atomic moves, fallback to text offer, call agent with accept_job/decline_job/end_call → existing handyman_accept/decline), flows.offer_job hook + post_offer, tick: emergency 15-min window, tick_calls.
 - Frontend: app/call/[id].tsx (ringing / hold-to-talk / type instead / hang up / landlord transcript), src/call/IncomingCallWatcher (3 s poll in handyman layout), ChoiceCards in welcome, profile, settings; "Prefers calls" label; missed-call label; timeline call rows → transcript.

@@ -33,7 +33,3 @@ export const CONTACT_CHOICES: Choice[] = [
   { value: "call", icon: "call", title: "Call me", body: "Your phone rings in the app. Quickest way to get jobs." },
   { value: "message", icon: "chatbubble-ellipses", title: "Message me", body: "You get a message with the job details." },
 ];
-export const OWNER_CALL_CHOICES: Choice[] = [
-  { value: "on", icon: "call", title: "Call handymen who like calls", body: "Rentwise rings them in the app, then texts if they miss it." },
-  { value: "off", icon: "chatbubble-ellipses", title: "Always message", body: "Every handyman gets the job by message." },
-];

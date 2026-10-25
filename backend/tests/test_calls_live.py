@@ -34,10 +34,8 @@ def ringing_for(tid, limit=20):
 
 @pytest.fixture(scope="module", autouse=True)
 def calls_on():
-    assert put("landlord", "/settings", {"handyman_calls": True}).status_code == 200
     assert patch("handyman", "/handyman/profile", {"contact_pref": "call"}).status_code == 200
     yield
-    put("landlord", "/settings", {"handyman_calls": False})
     patch("handyman", "/handyman/profile", {"contact_pref": "message"})
     for t in tenant_tickets():
         if t["status"] not in ("closed", "cancelled"):
@@ -46,9 +44,6 @@ def calls_on():
 
 # ---- settings / preferences
 class TestPrefs:
-    def test_settings_persist(self):
-        assert get("landlord", "/settings").json()["handyman_calls"] is True
-
     def test_profile_pref_and_landlord_list(self):
         assert get("handyman", "/handyman/profile").json()["contact_pref"] == "call"
         r = get("landlord", "/handymen/mine").json()
@@ -59,7 +54,6 @@ class TestPrefs:
     def test_validation(self):
         assert patch("handyman", "/handyman/profile", {"contact_pref": "sms"}).status_code == 422
         assert patch("tenant", "/handyman/profile", {"contact_pref": "call"}).status_code == 403
-        assert put("tenant", "/settings", {"handyman_calls": True}).status_code == 403
 
 
 # ---- ring → decline on ring screen → text offer fallback
@@ -167,7 +161,7 @@ class TestMissed:
 # ---- calls off → normal text offer (regression)
 class TestCallsOff:
     def test_text_offer_when_off(self):
-        assert put("landlord", "/settings", {"handyman_calls": False}).status_code == 200
+        assert patch("handyman", "/handyman/profile", {"contact_pref": "message"}).status_code == 200
         tid = _new_offer("The bathroom sink is clogged, water won't go down, please send a plumber")
         assert get("handyman", "/calls/incoming").json()["call"] is None
         jt = get("landlord", f"/tickets/{tid}").json()["job_thread_id"]

@@ -6,7 +6,6 @@ import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { BigButton, Card, ConfirmSheet, Divider, Field, LargeHeader, Row, Screen, Section, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
 import { spacing, useTheme } from "@/src/theme";
-import { ChoiceCards, OWNER_CALL_CHOICES } from "@/src/call/ChoiceCards";
 
 export default function Settings() {
   const router = useRouter();
@@ -33,12 +32,6 @@ export default function Settings() {
         {isLandlord ? <Field testID="settings-payment-input" label="Payment details shown to tenants" value={pay} onChangeText={setPay} placeholder="Zelle: you@email.com" /> : null}
         <BigButton testID="settings-save-profile" tone="soft" label="Save profile" onPress={() => save({ name, payment_details: pay })} />
       </Section>
-      {isLandlord ? (
-        <Section title="Calling handymen" testID="calls-section">
-          <ChoiceCards testIDPrefix="owner-calls" choices={OWNER_CALL_CHOICES} value={s.handyman_calls ? "on" : "off"}
-            onChange={(v) => save({ handyman_calls: v === "on" }, v === "on" ? "Rentwise will call handymen who like calls" : "Rentwise will message every handyman")} />
-        </Section>
-      ) : null}
       {isLandlord ? (
         <Section title="What Rentwise follows" testID="policies-section">
           <Card agent>

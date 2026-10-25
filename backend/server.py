@@ -958,18 +958,12 @@ async def lease_pdf(lid: str, user=Depends(get_media_user)):
 # ---------------- settings / memory / sample ----------------
 @api.get("/settings")
 async def get_settings(user=Depends(get_user)):
-    return {"name": user["name"], "email": user["email"], "role": user["role"], "policies": user.get("policies") or [], "payment_details": user.get("payment_details", ""), "demo": DEMO,
-            "handyman_calls": bool(user.get("handyman_calls"))}
+    return {"name": user["name"], "email": user["email"], "role": user["role"], "policies": user.get("policies") or [], "payment_details": user.get("payment_details", ""), "demo": DEMO}
 
 
 @api.put("/settings")
 async def put_settings(body: dict, user=Depends(get_user)):
     upd = {k: body[k] for k in ("name", "policies", "payment_details") if k in body}
-    if "handyman_calls" in body:
-        need(user, "landlord")
-        if not isinstance(body["handyman_calls"], bool):
-            raise HTTPException(422, "handyman_calls must be true or false")
-        upd["handyman_calls"] = body["handyman_calls"]
     await db.users.update_one({"id": user["id"]}, {"$set": upd})
     return {"ok": True}
 

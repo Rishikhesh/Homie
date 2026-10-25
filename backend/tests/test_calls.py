@@ -59,10 +59,9 @@ def mocks(monkeypatch):
     yield
 
 
-async def _setup(pref_by_name, calls_on=True, urgency="normal"):
+async def _setup(pref_by_name, urgency="normal"):
     tom = await db.users.find_one({"name": "Tom Chen"}, NF)
     unit = await db.units.find_one({"tenant_id": tom["id"]}, NF)
-    await db.users.update_one({"id": unit["landlord_id"]}, {"$set": {"handyman_calls": calls_on}})
     hs = {}
     for name, pref in pref_by_name.items():
         h = await db.handymen.find_one({"name": {"$regex": f"^{name}"}}, NF)
@@ -79,7 +78,6 @@ async def _cleanup(t, unit):
     await db.tickets.delete_one({"id": t["id"]})
     await db.calls.delete_many({"ticket_id": t["id"]})
     await db.approvals.delete_many({"ticket_id": t["id"]})
-    await db.users.update_one({"id": unit["landlord_id"]}, {"$set": {"handyman_calls": False}})
     await db.handymen.update_many({}, {"$set": {"contact_pref": "message"}})
 
 
@@ -92,7 +90,7 @@ async def _offers(t, hid):
 
 def test_1_calls_off_everyone_gets_text():
     async def go():
-        t, hs, unit = await _setup({"Hank": "call"}, calls_on=False)
+        t, hs, unit = await _setup({"Hank": "message"})
         try:
             await flows.offer_job(t, hs["Hank"])
             assert await db.calls.count_documents({"ticket_id": t["id"]}) == 0

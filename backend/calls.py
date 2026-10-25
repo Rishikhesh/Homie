@@ -19,8 +19,8 @@ VOICE_RULES = ("You are on a voice call with the handyman. Reply in 1-2 short sp
 
 
 async def wants_call(ticket, h):
-    owner = await db.users.find_one({"id": ticket["landlord_id"]}, NF) or {}
-    return bool(owner.get("handyman_calls")) and h.get("contact_pref") == "call"
+    """The handyman's own choice decides: 'Call me' on their Profile."""
+    return h.get("contact_pref") == "call"
 
 
 async def move(call_id, expected, new, extra=None):
