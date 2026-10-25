@@ -1,11 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
 import { useWindowDimensions, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { useAuth } from "@/src/auth";
 import { BigButton, Txt, Ionicons } from "@/src/ui";
-import { LoginHero } from "@/src/LoginHero";
 import { AgentTicker } from "@/src/AgentTicker";
 import { spacing, useTheme } from "@/src/theme";
 
@@ -15,10 +14,8 @@ export default function Login() {
   const { colors } = useTheme();
   const ins = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const [space, setSpace] = useState(0);
-  // the scene fills whatever height is left, so the text and button always fit on screen
-  const hero = Math.max(0, Math.min(width - 32, space, 400));
   const compact = height < 760;
+  const big = Math.min(compact ? 46 : 56, Math.floor((width - 48) / 7.2));
   return (
     <View testID="login-screen" style={{ flex: 1, backgroundColor: colors.surface, overflow: "hidden" }}>
       <LinearGradient colors={[colors.brandSecondary, colors.brandTertiary, colors.surface]} locations={[0, 0.45, 0.8]} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} />
@@ -34,13 +31,14 @@ export default function Login() {
           <Txt v="h2">Doorman</Txt>
         </Animated.View>
 
-        <View testID="login-hero-space" style={{ flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" }} onLayout={(e) => setSpace(Math.floor(e.nativeEvent.layout.height))}>
-          {hero > 120 ? <Animated.View entering={FadeIn.duration(700).delay(100)}><LoginHero size={hero} /></Animated.View> : null}
-        </View>
+        <Animated.View entering={FadeInDown.duration(500).delay(100)} style={{ flex: 1, justifyContent: "center", gap: spacing.md }}>
+          <Txt testID="login-headline" v="title" style={{ fontSize: big, lineHeight: Math.round(big * 1.08), letterSpacing: -1.5 }}>
+            Your rental,{"\n"}<Txt v="title" color={colors.brandPrimary} style={{ fontSize: big, lineHeight: Math.round(big * 1.08), letterSpacing: -1.5 }}>running itself.</Txt>
+          </Txt>
+          <Txt v="body" color={colors.onSurfaceTertiary} style={{ fontSize: 18, lineHeight: 26 }}>An AI doorman for your homes. Rent, repairs and tenants handled. You just OK the money.</Txt>
+        </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(450).delay(200)} style={{ gap: compact ? spacing.sm : spacing.md }}>
-          <Txt v="title" style={{ fontSize: compact ? 26 : 30, lineHeight: compact ? 32 : 36 }}>Your rental,{"\n"}running itself.</Txt>
-          <Txt v="body" color={colors.onSurfaceTertiary} numberOfLines={2}>An AI doorman for your homes. You just OK the money.</Txt>
+        <Animated.View entering={FadeInDown.duration(450).delay(250)} style={{ gap: compact ? spacing.sm : spacing.md }}>
           <AgentTicker />
           {error ? <Txt testID="login-error" v="label" color={colors.error}>{error}</Txt> : null}
           <BigButton testID="login-google-button" icon="logo-google" label="Continue with Google" onPress={signIn} loading={signingIn} style={{ marginTop: compact ? 0 : spacing.sm }} />
