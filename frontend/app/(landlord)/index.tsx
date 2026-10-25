@@ -6,15 +6,47 @@ import { api, money, ago } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { ApprovalCard } from "@/src/cards";
-import { AgentMark, BigButton, Card, EmptyState, ErrorState, Ionicons, LargeHeader, Row, Screen, Section, Skeleton, Txt } from "@/src/ui";
+import { BigButton, Card, EmptyState, ErrorState, Ionicons, LargeHeader, Row, Screen, Section, Skeleton, Txt } from "@/src/ui";
 import { spacing, useTheme } from "@/src/theme";
 
 function Stat({ label, value, testID, tone }: { label: string; value: string; testID: string; tone?: string }) {
   return (
-    <Card style={{ flex: 1, minWidth: 140 }} testID={testID}>
-      <Txt v="caption">{label}</Txt>
-      <Txt v="money" style={{ fontSize: 26 }} color={tone}>{value}</Txt>
-    </Card>
+    <View style={{ flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, gap: 2 }} testID={testID}>
+      <Txt v="caption" numberOfLines={1}>{label}</Txt>
+      <Txt v="money" style={{ fontSize: 24 }} color={tone} numberOfLines={1} adjustsFontSizeToFit>{value}</Txt>
+    </View>
+  );
+}
+
+function StatsBlock({ s, month }: { s: any; month: string }) {
+  const { colors } = useTheme();
+  const line = { backgroundColor: colors.divider };
+  return (
+    <View style={{ gap: spacing.md }}>
+      <Card style={{ padding: 0, overflow: "hidden" }}>
+        <View style={{ flexDirection: "row" }}>
+          <Stat testID="stat-collected" label={`Collected · ${month}`} value={money(s.collected)} />
+          <View style={[{ width: 0.5 }, line]} />
+          <Stat testID="stat-overdue" label="Overdue" value={money(s.overdue)} tone={s.overdue ? colors.error : undefined} />
+        </View>
+        <View style={[{ height: 0.5 }, line]} />
+        <View style={{ flexDirection: "row" }}>
+          <Stat testID="stat-open-tickets" label="Open tickets" value={String(s.open_tickets)} />
+          <View style={[{ width: 0.5 }, line]} />
+          <Stat testID="stat-avg-fix" label="Avg time to fix" value={s.avg_hours ? `${Math.round(s.avg_hours)} h` : "—"} />
+        </View>
+      </Card>
+      <Card agent testID="stat-fixed-without-you" style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandSecondary, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="sparkles" size={20} color={colors.onBrandSecondary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt v="label">Fixed without you</Txt>
+          <Txt v="small">{s.taps ? `You only tapped ${s.taps} times to approve money` : "Repairs Rentwise closes on its own"}</Txt>
+        </View>
+        <Txt v="money" style={{ fontSize: 28 }}>{s.fixed_without_you}</Txt>
+      </Card>
+    </View>
   );
 }
 
@@ -45,17 +77,7 @@ export default function LandlordHome() {
             ) : null}
           </Section>
           <Section title="Stats" testID="stats-section">
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
-              <Stat testID="stat-collected" label={`Collected in ${data.month}`} value={money(s.collected)} />
-              <Stat testID="stat-overdue" label="Overdue" value={money(s.overdue)} tone={s.overdue ? colors.error : undefined} />
-              <Stat testID="stat-open-tickets" label="Open tickets" value={String(s.open_tickets)} />
-              <Card style={{ flex: 1, minWidth: 140 }} agent testID="stat-fixed-without-you">
-                <AgentMark small />
-                <Txt v="caption">Fixed without you</Txt>
-                <Txt v="money" style={{ fontSize: 26 }}>{s.fixed_without_you}</Txt>
-                <Txt v="small">{s.taps ? `${s.taps} taps total` : ""}{s.avg_hours ? ` · avg ${s.avg_hours} h` : ""}</Txt>
-              </Card>
-            </View>
+            <StatsBlock s={s} month={data.month} />
           </Section>
           <Section title="Agent at work" testID="agent-feed-section">
             {data.activity.length ? (
