@@ -1,4 +1,4 @@
-# Rentwise end-to-end API regression tests (auth, repair flow, self-fix, privacy, money, leases, sample/act-as)
+# Doorman end-to-end API regression tests (auth, repair flow, self-fix, privacy, money, leases, sample/act-as)
 import os, time, io, datetime as dt
 import pytest, requests
 

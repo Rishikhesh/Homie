@@ -142,7 +142,7 @@ async def pay_rent(body: dict, user=Depends(get_user)):
             raise HTTPException(409, "This payment is already being processed")
     try:
         txn = {"id": uid(), "landlord_id": unit["landlord_id"], "date": iso(), "amount": float(amt), "sender_name": user["name"],
-               "memo": f"Rentwise transfer from {user['name']}", "status": "new", "payment_id": None, "source": "app_sim"}
+               "memo": f"Doorman transfer from {user['name']}", "status": "new", "payment_id": None, "source": "app_sim"}
         await db.bank_txns.insert_one(dict(txn))
         if kind == "deposit":
             pay = await record_payment(unit, amt, period, "app_sim", "deposit", txn["id"])
@@ -166,7 +166,7 @@ async def receipt_pdf(pid: str, user=Depends(get_media_user)):
     lines = [f"Received from: {t['name']}", f"Home: {unit['label']}, {prop['address']}, {prop['city']} {prop['state']}",
              f"For: {'Security deposit' if p['kind'] == 'deposit' else month_name(p['period']) + ' ' + p['period'][:4] + ' rent'}",
              f"Amount: {money(p['amount'])}", f"Date: {p['date'][:10]}", f"Reference: {p['id']}"]
-    b = await asyncio.to_thread(pdf_bytes, "Rent receipt", lines, "Simulated payment recorded by Rentwise.")
+    b = await asyncio.to_thread(pdf_bytes, "Rent receipt", lines, "Simulated payment recorded by Doorman.")
     return Response(b, media_type="application/pdf", headers={"Content-Disposition": f"inline; filename=receipt-{pid}.pdf"})
 
 
@@ -336,7 +336,7 @@ async def report_export(pid: str, fmt: str = "pdf", year: int | None = None, use
         lines.append(f"  Deposit kept for damages: {money(r['deposit_kept'])}")
     lines += [f"Line {ln['line']} · {ln['category']}: {money(ln['amount'])}" for ln in r["expense_lines"]]
     lines += [f"Total expenses: {money(r['total_expenses'])}", f"Net: {money(r['net'])}", f"Security deposits received this year (not income, excluded): {money(r['deposits_excluded'])}"]
-    b = await asyncio.to_thread(pdf_bytes, f"Schedule E summary {r['year']}", lines, "Prepared by Rentwise. Not tax advice — check with your tax professional.")
+    b = await asyncio.to_thread(pdf_bytes, f"Schedule E summary {r['year']}", lines, "Prepared by Doorman. Not tax advice — check with your tax professional.")
     return Response(b, media_type="application/pdf", headers={"Content-Disposition": "inline; filename=schedule-e.pdf"})
 
 

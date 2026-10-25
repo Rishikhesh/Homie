@@ -17,7 +17,7 @@ export default function Rights() {
       <LargeHeader title={`Your rights in ${r.state}`} subtitle={r.name} back={() => router.back()} />
       {rows.map(([k, v], i) => <Card key={k} index={i} style={{ marginBottom: spacing.md }}><Txt v="label">{k}</Txt><Txt v="body">{v}</Txt></Card>)}
       <Txt v="small" style={{ marginBottom: spacing.lg }}>General info, not legal advice.</Txt>
-      <BigButton testID="rights-ask-button" icon="sparkles" label="Ask Rentwise a question" onPress={() => router.push({ pathname: "/(tenant)/chat", params: { q: "My rights" } } as any)} />
+      <BigButton testID="rights-ask-button" icon="sparkles" label="Ask Doorman a question" onPress={() => router.push({ pathname: "/(tenant)/chat", params: { q: "My rights" } } as any)} />
     </Screen>
   );
 }

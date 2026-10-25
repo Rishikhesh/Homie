@@ -58,11 +58,11 @@ export function PhotoButtons({ onUploaded, testID = "photo", compact, label }: {
         {busy ? <Txt v="small">Uploading…</Txt> : null}
       </View>
       <Sheet visible={!!explain} onClose={() => setExplain(null)} title={explain === "camera" ? "Take a photo" : "Pick a photo"} testID={`${testID}-permission-sheet`}>
-        <Txt v="body" style={{ marginBottom: spacing.lg }}>A photo helps Rentwise tell the handyman what to bring, so the fix happens in one visit.</Txt>
+        <Txt v="body" style={{ marginBottom: spacing.lg }}>A photo helps Doorman tell the handyman what to bring, so the fix happens in one visit.</Txt>
         <BigButton testID={`${testID}-permission-continue`} label="Continue" onPress={() => run(explain!)} />
       </Sheet>
       <Sheet visible={!!blocked} onClose={() => setBlocked(null)} title="Access is turned off" testID={`${testID}-blocked-sheet`}>
-        <Txt v="body" style={{ marginBottom: spacing.lg }}>Turn on {blocked === "camera" ? "Camera" : "Photos"} for Rentwise in Settings to add photos. You can still describe the problem in words.</Txt>
+        <Txt v="body" style={{ marginBottom: spacing.lg }}>Turn on {blocked === "camera" ? "Camera" : "Photos"} for Doorman in Settings to add photos. You can still describe the problem in words.</Txt>
         <BigButton testID={`${testID}-open-settings`} label="Open Settings" onPress={() => { setBlocked(null); Linking.openSettings(); }} />
         <TextButton testID={`${testID}-blocked-close`} label="Not now" onPress={() => setBlocked(null)} />
       </Sheet>

@@ -44,7 +44,7 @@ export default function Handymen() {
           <>
             {(mine.data?.handymen || []).map((h: any, i: number) => <HmCard key={h.user_id} h={h} index={i} onPress={() => router.push(`/handyman/${h.user_id}`)} />)}
             {(mine.data?.invites || []).map((i: any) => <Card key={i.id} testID={`handyman-invite-${i.id}`}><Txt v="label">{i.email}</Txt><StatusPill label="Invite waiting" tone="warning" /></Card>)}
-            {mine.data && !mine.data.handymen.length ? <EmptyState testID="my-handymen-empty" icon="construct-outline" title="No handymen yet" body="Rentwise asks your own handymen first. Invite someone you trust or add one from below." action="Invite a handyman" onAction={() => setInvite(true)} /> : null}
+            {mine.data && !mine.data.handymen.length ? <EmptyState testID="my-handymen-empty" icon="construct-outline" title="No handymen yet" body="Doorman asks your own handymen first. Invite someone you trust or add one from below." action="Invite a handyman" onAction={() => setInvite(true)} /> : null}
           </>
         )}
       </Section>
@@ -57,10 +57,10 @@ export default function Handymen() {
           <HmCard key={h.user_id} h={h} index={i} onPress={() => router.push(`/handyman/${h.user_id}`)}
             right={<TextButton testID={`market-add-${h.user_id}`} label="Add" icon="add-circle-outline" onPress={async () => { try { await api(`/handymen/${h.user_id}/add`, { method: "POST" }); toast(`${h.name} added to your list`); reload(); } catch (e: any) { toast(e.message, "error"); } }} />} />
         ))}
-        {market.data && !market.data.length ? <EmptyState testID="market-empty" title="No one listed nearby yet" body="Handymen in your properties' states appear here when they join Rentwise." /> : null}
+        {market.data && !market.data.length ? <EmptyState testID="market-empty" title="No one listed nearby yet" body="Handymen in your properties' states appear here when they join Doorman." /> : null}
       </Section>
       <Sheet visible={invite} onClose={() => setInvite(false)} title="Invite a handyman" testID="invite-handyman-sheet">
-        <Field testID="invite-handyman-email" label="Their Google email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see your invite when they sign in to Rentwise. No email is sent." />
+        <Field testID="invite-handyman-email" label="Their Google email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see your invite when they sign in to Doorman. No email is sent." />
         <BigButton testID="invite-handyman-send" style={{ marginTop: spacing.lg }} label="Send invite" onPress={async () => { try { await api("/handymen/invite", { body: { email } }); toast("Invite created"); setInvite(false); setEmail(""); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
       </Sheet>
     </Screen>

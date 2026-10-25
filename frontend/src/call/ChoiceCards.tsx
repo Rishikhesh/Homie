@@ -1,4 +1,4 @@
-// Two big choice cards (no toggles). Used for "how Rentwise reaches you" and the landlord's "Call handymen".
+// Two big choice cards (no toggles). Used for "how Doorman reaches you" and the landlord's "Call handymen".
 import React from "react";
 import { Pressable, View } from "react-native";
 import { Ionicons, Txt } from "@/src/ui";

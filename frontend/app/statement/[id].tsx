@@ -91,7 +91,7 @@ export default function StatementScreen() {
         <BigNumber testID="statement-refund" value={s.refund} sign="in" caption={`Deposit back to ${first}`} />
         <Status size="sm" kind={s.total_deductions ? "none" : "good"} label={`${money(s.total_deductions)} kept from ${money(s.deposit)}`} />
         {s.status === "draft" ? <Ring days={s.days_left} total={30} caption={`Refund due ${when(s.due_by)}`} /> : null}
-        {s.over_deposit ? <Txt v="label" color={colors.error}>Damage is {money(s.over_deposit)} more than the deposit. Rentwise doesn&apos;t collect this; talk to {first}.</Txt> : null}
+        {s.over_deposit ? <Txt v="label" color={colors.error}>Damage is {money(s.over_deposit)} more than the deposit. Doorman doesn&apos;t collect this; talk to {first}.</Txt> : null}
         {isLandlord ? <Txt v="small">Checked {s.stats?.pairs_screened || 0} views · {s.stats?.sent_to_sonnet || 0} looked at closely</Txt> : null}
       </Card>
       <Section title={`Charges · ${charges.length}`} testID="charges-section" right={canEdit ? <TextButton testID="add-charge-button" label="+ Add a charge" onPress={() => setAdd({ area_key: Object.keys(s.areas || {})[0] || "other" })} /> : undefined}>

@@ -44,7 +44,7 @@ async def link_start(request: Request, user=Depends(get_user)):
     need(user, "landlord")
     base = public_base(request)
     r = await plaid("/link/token/create", {
-        "client_name": "Rentwise", "language": "en", "country_codes": ["US"], "products": ["transactions"],
+        "client_name": "Doorman", "language": "en", "country_codes": ["US"], "products": ["transactions"],
         "user": {"client_user_id": user["id"]}, "webhook": f"{base}/api/plaid/webhook",
         "hosted_link": {"completion_redirect_uri": f"{base}/api/plaid/complete", "url_lifetime_seconds": 1800},
     })
@@ -101,8 +101,8 @@ async def webhook(request: Request):
 async def complete():
     return """<html><head><meta name=viewport content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,sans-serif;background:#F9F9F8;color:#1C1C1E;padding:40px 24px;text-align:center">
-<h2>Bank linked</h2><p>You can close this window and return to Rentwise.</p>
-<button onclick="window.close()" style="background:#4A6B53;color:#fff;border:0;border-radius:12px;padding:16px 24px;font-size:16px">Return to Rentwise</button></body></html>"""
+<h2>Bank linked</h2><p>You can close this window and return to Doorman.</p>
+<button onclick="window.close()" style="background:#4A6B53;color:#fff;border:0;border-radius:12px;padding:16px 24px;font-size:16px">Return to Doorman</button></body></html>"""
 
 
 async def sync_item(item):

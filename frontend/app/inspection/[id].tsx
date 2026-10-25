@@ -96,7 +96,7 @@ function Capture({ i, reload, title }: { i: any; reload: () => void; title: stri
     if (!last) { setIdx(idx + 1); return; }
     if (Object.values(up).includes("uploading")) { toast("Still uploading — one moment", "error"); return; }
     setBusy(true);
-    try { await api(`/inspections/${i.id}/submit`, { method: "POST" }); toast(i.kind === "move_in" ? "Sent — Rentwise is writing notes" : "Sent — Rentwise is comparing"); reload(); }
+    try { await api(`/inspections/${i.id}/submit`, { method: "POST" }); toast(i.kind === "move_in" ? "Sent — Doorman is writing notes" : "Sent — Doorman is comparing"); reload(); }
     catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
   };
 
@@ -139,7 +139,7 @@ function Capture({ i, reload, title }: { i: any; reload: () => void; title: stri
       <Field testID="area-note-input" label="Anything to note? (optional)" placeholder="e.g. scratch on the door frame" value={note[a.key] ?? a.tenant_note ?? ""} onChangeText={(v) => setNote({ ...note, [a.key]: v })} />
       <BigButton testID="area-next-button" style={{ marginTop: spacing.xl }} label={last ? "Send check" : "Next"} loading={busy} disabled={last && !i.areas.some(has)} onPress={next} />
       <Sheet visible={!!explain} onClose={() => setExplain(null)} title="Use your camera" testID="camera-explain-sheet">
-        <Txt v="body" style={{ marginBottom: spacing.lg }}>Rentwise records each room so there&apos;s clear proof of how it looked. This protects your deposit.</Txt>
+        <Txt v="body" style={{ marginBottom: spacing.lg }}>Doorman records each room so there&apos;s clear proof of how it looked. This protects your deposit.</Txt>
         <BigButton testID="camera-explain-continue" label="Continue" onPress={() => capture(explain!)} />
       </Sheet>
       <Sheet visible={blocked} onClose={() => setBlocked(false)} title="Camera is off" testID="camera-blocked-sheet">
@@ -164,7 +164,7 @@ function ReviewNotes({ i, reload }: { i: any; reload: () => void }) {
   };
   return (
     <Screen testID="inspection-review-screen">
-      <LargeHeader title="Check the notes" subtitle={i.notes_ready ? "Fix anything that's wrong, then confirm" : "Rentwise is writing notes…"} />
+      <LargeHeader title="Check the notes" subtitle={i.notes_ready ? "Fix anything that's wrong, then confirm" : "Doorman is writing notes…"} />
       {!i.notes_ready ? <Card style={{ alignItems: "center", gap: spacing.sm, marginBottom: spacing.lg }}><ActivityIndicator /><Txt v="body">Looking at each area…</Txt></Card> : null}
       {done.map((a: any) => (
         <Card key={a.key} style={{ gap: spacing.sm, marginBottom: spacing.md }} testID={`review-area-${a.key}`}>
@@ -183,7 +183,7 @@ function Comparing({ i, title }: { i: any; title: string }) {
   const { colors } = useTheme();
   return (
     <Screen testID="inspection-comparing-screen">
-      <LargeHeader title={title} subtitle="Rentwise is comparing your home…" back={() => router.back()} />
+      <LargeHeader title={title} subtitle="Doorman is comparing your home…" back={() => router.back()} />
       <Card style={{ gap: spacing.sm }}>
         {i.areas.map((a: any) => {
           const s = i.progress?.[a.key] || "waiting";

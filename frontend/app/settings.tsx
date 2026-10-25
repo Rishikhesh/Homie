@@ -33,7 +33,7 @@ export default function Settings() {
         <BigButton testID="settings-save-profile" tone="soft" label="Save profile" onPress={() => save({ name, payment_details: pay })} />
       </Section>
       {isLandlord ? (
-        <Section title="What Rentwise follows" testID="policies-section">
+        <Section title="What Doorman follows" testID="policies-section">
           <Card agent>
             {(s.policies || []).map((p: string, i: number) => (
               <Row key={i} style={{ justifyContent: "space-between" }}>
@@ -44,10 +44,10 @@ export default function Settings() {
             {!s.policies?.length ? <Txt v="small">e.g. “Hank for plumbing”, “No visits before 9 am”. Money always needs your tap.</Txt> : null}
           </Card>
           <Field testID="policy-input" label="Add an instruction" value={pol} onChangeText={setPol} placeholder="Use the marketplace only if my handymen are busy" />
-          <BigButton testID="policy-add" tone="soft" label="Add" disabled={!pol.trim()} onPress={() => { save({ policies: [...(s.policies || []), pol.trim()] }, "Rentwise will follow this"); setPol(""); }} />
+          <BigButton testID="policy-add" tone="soft" label="Add" disabled={!pol.trim()} onPress={() => { save({ policies: [...(s.policies || []), pol.trim()] }, "Doorman will follow this"); setPol(""); }} />
         </Section>
       ) : null}
-      <Section title="What Rentwise remembers" testID="facts-section">
+      <Section title="What Doorman remembers" testID="facts-section">
         <Card>
           {(facts.data || []).map((f: any, i: number) => (
             <View key={f.id}>{i ? <Divider /> : null}
@@ -57,7 +57,7 @@ export default function Settings() {
               </Row>
             </View>
           ))}
-          {!facts.data?.length ? <Txt v="small">Nothing saved yet. Rentwise remembers helpful facts like pets or gate codes.</Txt> : null}
+          {!facts.data?.length ? <Txt v="small">Nothing saved yet. Doorman remembers helpful facts like pets or gate codes.</Txt> : null}
         </Card>
       </Section>
       {isLandlord && people.data?.length ? (

@@ -213,7 +213,7 @@ export function AgentMark({ small }: { small?: boolean }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
       <Ionicons name="sparkles" size={small ? 12 : 14} color={colors.brandPrimary} />
-      <Txt v="caption" color={colors.brandPrimary} weight="semibold">Rentwise</Txt>
+      <Txt v="caption" color={colors.brandPrimary} weight="semibold">Doorman</Txt>
     </View>
   );
 }

@@ -106,7 +106,7 @@ function ReceiptSheet({ t, visible, onClose, onDone }: any) {
         <PhotoButtons testID="receipt-photo" label="Receipt" onUploaded={setRec} />
         <PhotoButtons testID="receipt-after" label="After photo" onUploaded={setAfter} />
         <PhotoStrip ids={[rec, after].filter(Boolean) as string[]} />
-        <Field testID="receipt-amount-input" label="Receipt total ($)" keyboardType="decimal-pad" value={amt} onChangeText={setAmt} hint="Rentwise also reads the total from the photo" />
+        <Field testID="receipt-amount-input" label="Receipt total ($)" keyboardType="decimal-pad" value={amt} onChangeText={setAmt} hint="Doorman also reads the total from the photo" />
         <BigButton testID="receipt-submit" label="Send for approval" disabled={!rec || !after} loading={busy} onPress={async () => {
           setBusy(true);
           try { await api(`/tickets/${t.id}/receipt`, { body: { receipt_id: rec, after_photo_id: after, amount: amt ? Number(amt) : null } }); toast("Sent for approval"); onDone(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
@@ -192,7 +192,7 @@ export default function TicketDetail() {
       <AcceptSheet t={t} visible={sheet === "accept"} onClose={() => setSheet(null)} onDone={() => { setSheet(null); reload(); }} />
       <FixedSheet t={t} visible={sheet === "fixed"} onClose={() => setSheet(null)} onDone={() => { setSheet(null); reload(); }} />
       <ReceiptSheet t={t} visible={sheet === "receipt"} onClose={() => setSheet(null)} onDone={() => { setSheet(null); reload(); }} />
-      <ConfirmSheet visible={sheet === "decline"} onClose={() => setSheet(null)} title="Can't take it?" body="Rentwise offers it to someone else." confirmLabel="Can't take it" danger testID="decline-confirm" onConfirm={async () => { try { await api(`/tickets/${id}/decline`, { body: {} }); toast("OK, it's in Missed"); setSheet(null); if (router.canGoBack()) router.back(); else router.replace("/(handyman)" as any); } catch (e: any) { toast(e.message, "error"); } }} />
+      <ConfirmSheet visible={sheet === "decline"} onClose={() => setSheet(null)} title="Can't take it?" body="Doorman offers it to someone else." confirmLabel="Can't take it" danger testID="decline-confirm" onConfirm={async () => { try { await api(`/tickets/${id}/decline`, { body: {} }); toast("OK, it's in Missed"); setSheet(null); if (router.canGoBack()) router.back(); else router.replace("/(handyman)" as any); } catch (e: any) { toast(e.message, "error"); } }} />
       <ConfirmSheet visible={sheet === "selffix"} onClose={() => setSheet(null)} title="Fix it yourself?" body="The owner sets a limit first. Then it comes off your next rent." confirmLabel="Ask the owner" testID="selffix-confirm" onConfirm={() => act("self-fix", {}, "Asked the owner for a limit")} />
     </Screen>
   );

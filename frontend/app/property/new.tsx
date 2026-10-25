@@ -60,7 +60,7 @@ export default function NewProperty() {
           </View>
         ))}
         {f.rental_type === "rooms" ? <TextButton testID="add-room-button" icon="add" label="Add a room" onPress={() => setUnits([...units, { label: `Room ${String.fromCharCode(65 + units.length)}`, rent: "", due_day: "1" }])} /> : null}
-        <Field testID="prop-rules-input" label="House rules (Rentwise follows these)" multiline value={f.house_rules || ""} onChangeText={(v) => set("house_rules", v)} placeholder="Quiet hours 10 pm–7 am. No smoking." />
+        <Field testID="prop-rules-input" label="House rules (Doorman follows these)" multiline value={f.house_rules || ""} onChangeText={(v) => set("house_rules", v)} placeholder="Quiet hours 10 pm–7 am. No smoking." />
         {["electric", "gas", "internet"].map((k) => <Field key={k} testID={`prop-utility-${k}`} label={`${k[0].toUpperCase() + k.slice(1)} provider`} value={f.utilities[k] || ""} onChangeText={(v) => set("utilities", { ...f.utilities, [k]: v })} />)}
         <BigButton testID="prop-save-button" label="Save property" loading={busy} disabled={!f.name || !f.address || !place || !units[0].rent} onPress={save} />
       </View>

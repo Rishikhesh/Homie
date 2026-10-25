@@ -94,7 +94,7 @@ export default function UploadLease() {
             </Row>
           </Card>
           <BigButton testID="save-uploaded-lease-button" label="Save lease" loading={busy} disabled={busy || !f.rent || !f.deposit || !f.start || !f.end} onPress={save} />
-          <Txt v="small">Saved as signed. Your tenant can read it, and Rentwise answers lease questions from it.</Txt>
+          <Txt v="small">Saved as signed. Your tenant can read it, and Doorman answers lease questions from it.</Txt>
         </View>
       )}
     </Screen>

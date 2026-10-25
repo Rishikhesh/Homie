@@ -33,7 +33,7 @@ export function TicketRow({ t, role, index = 0, action }: { t: any; role: string
 
 const HIGH = /high|above|more than|over the|pricey|expensive|check/i;
 
-/** "Needs your OK": BigNumber, what in a few words, Rentwise's one-line view, big OK, text-link No. */
+/** "Needs your OK": BigNumber, what in a few words, Doorman's one-line view, big OK, text-link No. */
 export function ApprovalCard({ a, onDone, index = 0 }: { a: any; onDone: () => void; index?: number }) {
   const { colors } = useTheme();
   const toast = useToast();

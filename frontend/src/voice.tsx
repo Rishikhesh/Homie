@@ -93,8 +93,8 @@ export function MicButton({ onText, disabled }: { onText: (t: string) => void; d
       const cur = await AudioModule.getRecordingPermissionsAsync();
       const perm = cur.granted ? cur : cur.canAskAgain ? await AudioModule.requestRecordingPermissionsAsync() : cur;
       if (!perm.granted) {
-        if (!perm.canAskAgain) { toast("Microphone is off for Rentwise. Turn it on in Settings to talk", "error"); Linking.openSettings(); }
-        else toast("Microphone access is needed to talk to Rentwise", "error");
+        if (!perm.canAskAgain) { toast("Microphone is off for Doorman. Turn it on in Settings to talk", "error"); Linking.openSettings(); }
+        else toast("Microphone access is needed to talk to Doorman", "error");
         return;
       }
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: true });

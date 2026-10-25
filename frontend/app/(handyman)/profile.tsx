@@ -38,9 +38,9 @@ export default function Profile() {
         <Txt v="money" testID="earnings-month">{money(data.earnings_month)}</Txt>
         <Txt v="small">{data.jobs_done || 0} {data.jobs_done === 1 ? "job" : "jobs"} done · {money(data.earnings_total)} all time</Txt>
       </Card>
-      <Section title="How Rentwise contacts you" testID="contact-pref-section">
+      <Section title="How Doorman contacts you" testID="contact-pref-section">
         <ChoiceCards testIDPrefix="contact-pref" choices={CONTACT_CHOICES} value={data.contact_pref || "message"}
-          onChange={async (v) => { try { await api("/handyman/profile", { method: "PATCH", body: { contact_pref: v } }); toast(v === "call" ? "Rentwise will call you" : "Rentwise will message you"); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
+          onChange={async (v) => { try { await api("/handyman/profile", { method: "PATCH", body: { contact_pref: v } }); toast(v === "call" ? "Doorman will call you" : "Doorman will message you"); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
       </Section>
       <Section title="Trades">
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>

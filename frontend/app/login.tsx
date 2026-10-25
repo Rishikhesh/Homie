@@ -32,7 +32,7 @@ export default function Login() {
           <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center" }}>
             <Ionicons name="sparkles" size={17} color={colors.onBrandPrimary} />
           </View>
-          <Txt v="h2">Rentwise</Txt>
+          <Txt v="h2">Doorman</Txt>
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(700).delay(100)}><LoginHero size={hero} /></Animated.View>
