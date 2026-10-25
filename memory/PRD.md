@@ -114,3 +114,8 @@ Note: app renamed Homi → Homi (June 2026).
 - db.app_settings {key:"shared_demo", on}. GET/POST /api/admin/shared-demo (POST admin-only).
 - On: other landlords see ONLY the sharing admin's (app_settings.by) sample people in /sample/people (shared=true), no duplicates; X-Act-As allowed for admins' samples. Off: own sample people only. DEMO_MODE unchanged.
 - Settings → "Admin · Shared demo" switch (src/SharedDemoSwitch.tsx), shown only to admins.
+
+## Landlord payout readiness + voice — June 2026 (tests/test_landlord_payout_ready.py)
+- GET /api/bank/me (tenant) → landlord_connected. pay.tsx disables Pay rent/deposit + note when tenant bank connected but landlord isn't; refreshes on focus. 409 safety net kept.
+- First landlord payout-bank connect posts "You can now pay rent straight from your bank." in each tenant chat (not on reconnect).
+- Voice: TTS now tts-1-hd + "sage" (calm, composed). Cache key includes voice/model so old audio isn't reused.

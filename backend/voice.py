@@ -9,7 +9,7 @@ import asyncio, os
 
 router = APIRouter(prefix="/api")
 STT_MODEL = "gpt-4o-mini-transcribe"   # doesn't invent text on silence
-TTS_MODEL, TTS_VOICE = "tts-1", "coral"  # fast, warm voice
+TTS_MODEL, TTS_VOICE = "tts-1-hd", "sage"  # higher-quality, calm and composed voice
 VOICE_PROVIDER = os.environ.get("VOICE_PROVIDER", "emergent")
 
 

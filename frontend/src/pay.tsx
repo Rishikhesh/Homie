@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { api, money } from "@/src/api";
-import { BigButton, ConfirmSheet, useToast } from "@/src/ui";
+import { BigButton, ConfirmSheet, Txt, useToast } from "@/src/ui";
 import { burst } from "@/src/visual";
 import { useBank } from "@/src/bank";
 import { spacing } from "@/src/theme";
@@ -12,6 +13,9 @@ export function PayButton({ due, deposit, onPaid, landlord }: { due: any; deposi
   const [c, setC] = useState<null | "rent" | "deposit">(null);
   const [busy, setBusy] = useState(false);
   const viaBank = !!bank.data?.connected;
+  const blocked = viaBank && bank.data?.landlord_connected === false; // landlord has no payout bank yet
+  const { reload } = bank;
+  useFocusEffect(useCallback(() => { reload(); }, [reload]));
   const pay = async () => {
     setBusy(true);
     try {
@@ -25,8 +29,9 @@ export function PayButton({ due, deposit, onPaid, landlord }: { due: any; deposi
   const from = viaBank ? ` from ••${bank.data.mask}` : "";
   return (
     <>
-      {due ? <BigButton testID="pay-rent-button" icon={viaBank ? "flash" : undefined} label={`Pay rent ${money(due.remaining)}${from}`} onPress={() => ask("rent")} disabled={busy} /> : null}
-      {deposit ? <BigButton testID="pay-deposit-button" tone="soft" label={`Pay deposit ${money(deposit)}`} onPress={() => ask("deposit")} style={{ marginTop: spacing.sm }} disabled={busy} /> : null}
+      {due ? <BigButton testID="pay-rent-button" icon={viaBank ? "flash" : undefined} label={`Pay rent ${money(due.remaining)}${from}`} onPress={() => ask("rent")} disabled={busy || blocked} /> : null}
+      {deposit ? <BigButton testID="pay-deposit-button" tone="soft" label={`Pay deposit ${money(deposit)}`} onPress={() => ask("deposit")} style={{ marginTop: spacing.sm }} disabled={busy || blocked} /> : null}
+      {blocked && (due || deposit) ? <Txt testID="pay-landlord-not-ready" v="small" style={{ marginTop: spacing.sm }}>Your landlord hasn’t set up bank payouts yet. We’ll let you know when you can pay.</Txt> : null}
       <ConfirmSheet visible={!!c} onClose={() => setC(null)} testID="pay-confirm"
         title={c === "deposit" ? `Pay your deposit to ${landlord}?` : `Pay ${landlord} for ${due?.month?.split(" ")[0]}?`} amount={c === "deposit" ? deposit : due?.remaining}
         body={viaBank ? `Bank transfer through Plaid from ${bank.data.bank} ••${bank.data.mask}. Test money only.` : "Simulated payment. No real money moves."} confirmLabel="Pay now" onConfirm={pay} loading={busy} />

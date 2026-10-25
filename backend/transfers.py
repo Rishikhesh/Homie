@@ -3,7 +3,7 @@ Two legs, as Plaid requires: ACH debit from the tenant into the Plaid Ledger, th
 Sandbox only: test banks and test money; settlement is simulated right away so the books update instantly."""
 import json
 from fastapi import APIRouter, Depends, HTTPException
-from core import db, NF, iso, uid, get_user, activity
+from core import db, NF, iso, uid, get_user, activity, tenant_thread, post
 from plaid_bank import plaid
 
 router = APIRouter(prefix="/api/bank")
@@ -19,7 +19,11 @@ def public(link):
 
 @router.get("/me")
 async def my_bank(user=Depends(get_user)):
-    return public(await db.bank_links.find_one({"user_id": user["id"]}, NF))
+    res = public(await db.bank_links.find_one({"user_id": user["id"]}, NF))
+    if user["role"] == "tenant":
+        unit = await db.units.find_one({"tenant_id": user["id"]}, NF)
+        res["landlord_connected"] = bool(unit and await db.bank_links.find_one({"user_id": unit["landlord_id"]}, {"_id": 1}))
+    return res
 
 
 @router.post("/connect")
@@ -35,9 +39,14 @@ async def connect(user=Depends(get_user)):
     a = next((x for x in acc["accounts"] if x.get("subtype") == "checking"), acc["accounts"][0])
     link = {"user_id": user["id"], "role": user["role"], "item_id": ex["item_id"], "access_token": ex["access_token"], "account_id": a["account_id"],
             "mask": a.get("mask") or "0000", "name": a.get("name") or "Checking", "bank": "First Platypus Bank (test)", "created_at": iso()}
+    had = await db.bank_links.find_one({"user_id": user["id"]}, {"_id": 1})
     await db.bank_links.update_one({"user_id": user["id"]}, {"$set": link}, upsert=True)
     if user["role"] == "landlord":
         await activity(user["id"], f"Payout bank connected: {link['bank']} ••{link['mask']}", None, "money")
+        if not had:
+            async for u in db.units.find({"landlord_id": user["id"], "tenant_id": {"$ne": None}}, NF):
+                th = await tenant_thread(u["tenant_id"], user["id"])
+                await post(th["id"], "You can now pay rent straight from your bank.")
     return public(link)
 
 
