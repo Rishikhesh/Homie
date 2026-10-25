@@ -106,4 +106,4 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 - Auto-OK history: GET /api/landlord/auto-approvals (non-cancelled, with total) → Settings list under the limit (src/AutoHistory.tsx), rows open /ticket/[id].
 
 ## Sign-in illustration — June 2026
-- src/LoginHero.tsx is now a static picture-book SVG: cozy home, landlord with keys, tenant + cat, handyman with toolbox.
+- src/LoginHero.tsx is a static "product preview": stacked theme-coloured app cards (rent paid, Doorman auto-OK update, bank payment toast), scaled to fit.
