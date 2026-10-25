@@ -103,3 +103,7 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Doorman"
 - Handyman price <= limit → no landlord approval card; ticket.quote_status="auto"; tenant's time card shows "Price $X · picking a time agrees to it".
 - Tenant picks time → quote approved (auto_approved=True), approvals record status "auto_approved", booked. Limit re-checked at pick; if lowered, falls back to landlord tap.
 - Over limit → old flow. Final-price overage + handyman payment still need landlord tap.
+- Auto-OK history: GET /api/landlord/auto-approvals (non-cancelled, with total) → Settings list under the limit (src/AutoHistory.tsx), rows open /ticket/[id].
+
+## Sign-in illustration — June 2026
+- src/LoginHero.tsx is now a static picture-book SVG: cozy home, landlord with keys, tenant + cat, handyman with toolbox.

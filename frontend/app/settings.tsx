@@ -6,6 +6,7 @@ import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { BigButton, Card, ConfirmSheet, Divider, Field, LargeHeader, Row, Screen, Section, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
 import { useTheme } from "@/src/theme";
+import { AutoHistory } from "@/src/AutoHistory";
 
 export default function Settings() {
   const router = useRouter();
@@ -38,6 +39,7 @@ export default function Settings() {
           <Field testID="auto-limit-input" label="Auto-OK repairs up to ($)" value={lim} onChangeText={(v) => setLim(v.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1"))} keyboardType="decimal-pad" placeholder="200"
             hint={Number(lim) > 0 ? `When a handyman's price is $${lim} or less and the tenant agrees, it's booked without your tap. You still tap to pay.` : "Off. Every price needs your tap."} />
           <BigButton testID="auto-limit-save" tone="soft" label="Save limit" onPress={() => save({ auto_approve_limit: Number(lim) || 0 }, Number(lim) > 0 ? `Auto-OK up to $${lim}` : "Auto-OK turned off")} />
+          <AutoHistory />
         </Section>
       ) : null}
       {isLandlord ? (

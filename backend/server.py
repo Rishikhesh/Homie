@@ -715,6 +715,21 @@ async def ll_home(user=Depends(get_user)):
                       "avg_hours": round(sum(hrs) / len(hrs), 1) if hrs else None, "taps": taps}, "month": ov["month"]}
 
 
+@api.get("/landlord/auto-approvals")
+async def auto_approvals(user=Depends(get_user)):
+    if user["role"] != "landlord":
+        raise HTTPException(403, "Only landlords have an auto-OK history")
+    items = []
+    async for a in db.approvals.find({"landlord_id": user["id"], "status": "auto_approved"}, NF).sort("created_at", -1).limit(100):
+        t = await db.tickets.find_one({"id": a["ticket_id"]}, NF) or {}
+        if t.get("status") == "cancelled":
+            continue
+        h = await db.handymen.find_one({"user_id": t.get("handyman_id")}, NF) if t.get("handyman_id") else None
+        items.append({"id": a["id"], "ticket_id": a["ticket_id"], "title": t.get("title") or a["title"], "amount": a["amount"],
+                      "handyman": h["name"] if h else None, "status": t.get("status"), "at": a["created_at"]})
+    return {"items": items, "count": len(items), "total": sum(float(i["amount"]) for i in items)}
+
+
 @api.post("/approvals/{aid}/decide")
 async def decide(aid: str, body: dict, user=Depends(get_user)):
     need(user, "landlord")
