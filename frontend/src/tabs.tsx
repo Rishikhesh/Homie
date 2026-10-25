@@ -1,7 +1,7 @@
 import React from "react";
 import { Platform } from "react-native";
 import { Tabs } from "expo-router";
-import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { NativeTabs } from "expo-router/native-tabs";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { usesNativeTabs } from "@/src/navigation";
 import { fonts, useTheme } from "@/src/theme";

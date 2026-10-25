@@ -131,7 +131,7 @@ export default function Money() {
       <Sheet visible={sheet === "cash"} onClose={() => setSheet(null)} title="Record a cash payment" testID="cash-sheet">
         <View style={{ gap: spacing.md }}>
           {rooms.length ? rooms.map((u: any) => <Chip key={u.unit.id} testID={`cash-room-${u.unit.id}`} label={`${u.pname} · ${u.unit.label} · ${u.tenant_name}`} selected={f.uid === u.unit.id} onPress={() => setF({ ...f, uid: u.unit.id, amount: String(u.month?.due - u.month?.paid || u.unit.rent) })} />) : <Txt v="body">No rented rooms yet.</Txt>}
-          <Field testID="cash-amount-input" label="Amount ($)" keyboardType="decimal-pad" value={f.amount || ""} onChangeText={(v) => setF({ ...f, amount: v })} />
+          <Field testID="cash-amount-input" selectTextOnFocus label="Amount ($)" keyboardType="decimal-pad" value={f.amount || ""} onChangeText={(v) => setF({ ...f, amount: v })} />
           <BigButton testID="cash-save" label="Record payment" disabled={!f.uid} onPress={() => setCash({ uid: f.uid, amount: Number(f.amount) })} />
         </View>
       </Sheet>

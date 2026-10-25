@@ -78,8 +78,11 @@ async def reword(text, audience, about=""):
     return strip_contacts(out or clean)
 
 
-async def triage(text):
-    out = await quick('Classify a message sent to a rental-property assistant. Reply ONLY JSON {"in_scope": true|false}. in_scope=true for anything about the home, rent, lease, repairs, rules, utilities, moving, payments, handyman jobs, tenant/landlord law, greetings or thanks. false for unrelated topics (recipes, trivia, coding...).', text)
+async def triage(text, seat="tenant"):
+    who = {"tenant": "a tenant", "landlord": "a landlord about their rental portfolio", "job": "a handyman about a repair job"}[seat]
+    out = await quick('Classify a message sent by ' + who + ' to a rental-property assistant. Reply ONLY JSON {"in_scope": true|false}. '
+                      'in_scope=true for ANYTHING that could relate to renting: the home, rent, who paid or is late, money, expenses, repairs, tenants, handymen, leases, rules, utilities, moving, taxes on the rental, law, greetings, thanks or short follow-ups. '
+                      'Only false when it is clearly unrelated (recipes, sports, trivia, coding, homework). When unsure, true.', text)
     m = re.search(r"\{.*\}", out or "", re.S)
     try:
         return json.loads(m.group(0)) if m else {"in_scope": True}
@@ -277,9 +280,10 @@ async def lookup(kind, user, thread):
 async def run_turn(thread_id, user, text, attachments):
     thread = await db.threads.find_one({"id": thread_id}, NF)
     try:
-        tri = await triage(text) if text and not attachments else {"in_scope": True}
+        tri = await triage(text, thread["kind"]) if text and not attachments else {"in_scope": True}
         if not tri.get("in_scope", True):
-            await post(thread_id, "I can only help with your home, rent, lease and repairs — anything there I can do for you?")
+            scope = "your properties, tenants, rent, repairs and money" if thread["kind"] == "landlord" else "this job" if thread["kind"] == "job" else "your home, rent, lease and repairs"
+            await post(thread_id, f"I can only help with {scope} — anything there I can do for you?")
             return
         system = await build_system(thread, user)
         chat = llm(system, SONNET, f"{thread_id}-{uid()}").with_tools(TOOLS[thread["kind"]])

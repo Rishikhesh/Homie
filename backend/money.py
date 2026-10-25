@@ -313,10 +313,73 @@ async def report_export(pid: str, fmt: str = "pdf", year: int | None = None, use
 @router.post("/reports/{pid}/check")
 async def report_check(pid: str, request: Request, year: int | None = None, user=Depends(get_user)):
     need(user, "landlord")
+    import json, re
     from agent import quick
     from core import OPUS
-    r = await build_report(user["id"], pid, year or now().year)
-    slim = {k: v for k, v in r.items() if k not in ("expenses", "property")}
-    txt = await quick("You check small-landlord Schedule E summaries. List up to 4 short bullet points of anything odd or missing (e.g. no insurance, months without rent, unusual repair totals). Plain words. End with 'Not tax advice.'",
-                      str(slim), model=OPUS)
-    return {"notes": txt}
+    yr = year or now().year
+    r = await build_report(user["id"], pid, yr)
+    facts = await report_facts(r, pid, yr)
+    base = rule_insights(facts)
+    out = await quick(
+        "You are a sharp bookkeeper for a small US landlord. From the FACTS, pick the 3-4 insights worth acting on (money lost, missed deductions, risks, wins). "
+        'Reply ONLY JSON: {"headline": "<=12 words, the single most useful takeaway", "insights": [{"tone": "risk|opportunity|good", "title": "<=7 words", '
+        '"detail": "<=22 words, concrete, with numbers", "impact": <yearly $ number or null>, "action": "<one of the allowed action ids or none>"}]}. '
+        "Allowed actions: " + ", ".join(sorted({i["action"] for i in base} | {"none"})) + ". Never invent numbers not in FACTS. No tax advice disclaimers inside items.",
+        json.dumps({"facts": facts, "candidate_insights": base}, default=str), model=OPUS)
+    m = re.search(r"\{.*\}", out or "", re.S)
+    try:
+        data = json.loads(m.group(0))
+        ins = [i for i in data.get("insights", []) if i.get("title")][:4]
+        if not ins:
+            raise ValueError
+    except Exception:  # noqa: BLE001
+        data, ins = {"headline": base[0]["title"] if base else "Books look healthy"}, base[:4]
+    acts = {i["action"]: i for i in base}
+    for i in ins:
+        i["action_meta"] = acts.get(i.get("action"), {}).get("action_meta")
+    return {"headline": data.get("headline"), "insights": ins, "net": r["net"], "margin": facts["margin_pct"], "note": "Not tax advice."}
+
+
+async def report_facts(r, pid, yr):
+    cur = period_of()
+    last = cur if str(yr) == cur[:4] else f"{yr}-12"
+    units = []
+    async for u in db.units.find({"property_id": pid}, NF):
+        rows = [x for x in await unit_ledger(u) if x["period"].startswith(str(yr)) and x["period"] <= last]
+        start = max(f"{yr}-01", (r["property"].get("created_at") or "")[:7] or f"{yr}-01")
+        months_in_year = len(periods_between(start, last))
+        units.append({"unit_id": u["id"], "label": u["label"], "rent": u["rent"], "tenant": bool(u.get("tenant_id")),
+                      "unpaid": sum(x["remaining"] for x in rows), "late_months": len([x for x in rows if x["status"] == "overdue"]),
+                      "vacant_months": max(0, months_in_year - len([x for x in rows if x["period"] >= start])) if u.get("tenant_id") else months_in_year})
+    repairs = [e for e in r["expenses"] if e["category"] == "Repairs"]
+    by_unit = {}
+    for e in repairs:
+        by_unit[e.get("unit_id")] = by_unit.get(e.get("unit_id"), 0) + e["amount"]
+    have = {ln["category"] for ln in r["expense_lines"]}
+    rents = r["rents_received"]
+    return {"year": yr, "rents_received": rents, "total_expenses": r["total_expenses"], "net": r["net"],
+            "margin_pct": round(r["net"] / rents * 100) if rents else None, "units": units, "repairs_total": sum(e["amount"] for e in repairs),
+            "repairs_by_unit": {next((u["label"] for u in units if u["unit_id"] == k), "Property"): v for k, v in by_unit.items()},
+            "missing_common_deductions": [c for c in ("Insurance", "Taxes", "Mortgage interest", "Utilities") if c not in have],
+            "deposits_held": r["deposits_excluded"]}
+
+
+def rule_insights(f):
+    out = []
+    for u in f["units"]:
+        if u["vacant_months"] > 0 and not u["tenant"]:
+            out.append({"tone": "risk", "title": f"{u['label']} is sitting empty", "detail": f"{u['vacant_months']} months vacant this year at {money(u['rent'])}/mo.",
+                        "impact": u["vacant_months"] * u["rent"], "action": "invite_tenant", "action_meta": {"unit_id": u["unit_id"]}})
+        if u["unpaid"] > 0:
+            out.append({"tone": "risk", "title": f"{money(u['unpaid'])} unpaid in {u['label']}", "detail": f"{u['late_months']} late month(s). Send a reminder or record a cash payment.",
+                        "impact": u["unpaid"], "action": "review_rent", "action_meta": {}})
+    for c in f["missing_common_deductions"]:
+        out.append({"tone": "opportunity", "title": f"No {c.lower()} logged", "detail": f"Most landlords can deduct {c.lower()}. Add it to lower your taxable profit.",
+                    "impact": None, "action": f"add_expense:{c}", "action_meta": {"category": c}})
+    for lbl, amt in f["repairs_by_unit"].items():
+        if f["rents_received"] and amt > 0.1 * f["rents_received"]:
+            out.append({"tone": "risk", "title": f"High repair spend in {lbl}", "detail": f"{money(amt)} on repairs — over 10% of rent. Check for a recurring problem.",
+                        "impact": amt, "action": "open_tickets", "action_meta": {}})
+    if f["margin_pct"] is not None and f["margin_pct"] >= 60:
+        out.append({"tone": "good", "title": f"Healthy {f['margin_pct']}% margin", "detail": f"Net {money(f['net'])} on {money(f['rents_received'])} rent.", "impact": None, "action": "none", "action_meta": {}})
+    return out

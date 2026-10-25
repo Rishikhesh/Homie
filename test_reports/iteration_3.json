@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only re-check of the invite keyboard fix at 390x844 on the Expo web preview, plus a code review of the Sheet. Code review: Sheet (src/ui.tsx:297-312) now moves above the keyboard in only one way, an animated paddingBottom = max(|keyboard height|, bottom safe-area inset) + 32. Its children sit in a plain ScrollView with keyboardShouldPersistTaps='handled'. KeyboardAwareScrollView is no longer used anywhere in app/ or src/, so the double compensation from iteration 2 is gone and the logic looks correct. Invite tenant flow: PASS. Maple House > Room C 'Invite tenant' opens invite-tenant-sheet, invite-tenant-email shows the placeholder 'name@gmail.com', takes typed input at y=664-714 (not clipped), Create invite shows the 'Invite created' toast, the sheet closes and 'Invite pending' appears. The test invite was then cancelled and Room C is vacant again. Regressions: PASS. The handyman invite sheet opens, takes input and closes from the backdrop. In the cash sheet, picking a room pre-fills 1200, focusing the amount selects all of it (selection 0-4) and typing '10' replaces it with '10'. Tabs: PASS. All 5 tabs (home, tickets, properties, handymen, money) render on web, there are no page errors, and the new Metro bundle no longer prints the 'unstable-native-tabs is deprecated' warning. The import from expo-router/native-tabs is valid in expo-router 58.0.25 and the Trigger.Icon/Trigger.Label API still exists. Moving above the keyboard on a real device cannot be checked in the web preview.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Handymen > Invite a handyman sheet", "issues": ["invite-handyman-email has no placeholder, unlike the tenant invite field. Minor. Reference: app/(landlord)/handymen.tsx:62"]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [".screenshots/i3_home.jpg", ".screenshots/i3_sheet.jpg", ".screenshots/i3_after.jpg", ".screenshots/i3_hm.jpg", ".screenshots/i3_cash.jpg"],
+  "action_items": [
+    "Optional: add placeholder='name@gmail.com' to invite-handyman-email (app/(landlord)/handymen.tsx:62) to match the tenant invite.",
+    "Check on Expo Go (iOS and Android) that invite-tenant-email stays above the keyboard. The web preview cannot simulate the native keyboard."
+  ],
+  "critical_code_review_comments": [
+    "ui.tsx Sheet: there is now a single compensation, the animated paddingBottom from useReanimatedKeyboardAnimation. Math.abs handles iOS reporting a negative height. Max() with ins.bottom avoids adding the inset twice when the keyboard is open. keyboard-controller 1.22.7 supports RN Modal on Android since 1.13, so the Modal does not fall back to its own adjustResize.",
+    "ui.tsx Sheet: with maxHeight '92%' and the keyboard open, a tall sheet (for example expense or assign) gets a shorter visible scroll area, but the plain ScrollView still scrolls. This is acceptable.",
+    "tabs.tsx: the expo-router/native-tabs import resolves (package export ./native-tabs) and the deprecation warning is gone from the fresh bundle."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped as requested)", "frontend": "100% (invite tenant, handyman invite, cash sheet selectTextOnFocus, tabs render)"},
+  "seed_data_creation": "Created and then cancelled the invite TEST_iter3_tenant@example.com on Maple House Room C, so Room C is vacant again. The handyman invite was typed but never sent.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Landlord token: test-landlord-token (set localStorage rw_session_token, then reload). Room C unitId=aaf0b4969cb341db. After opening a sheet, wait about 1.5s for the slide animation before interacting with it.",
+  "rca_of_issue": "The original bug happened because the Sheet had nothing that moved it above the keyboard. Iteration 2's fix added a second compensation through KeyboardAwareScrollView. This iteration keeps only the animated paddingBottom lift, which is correct."
+}

@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown, FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
+import { useReanimatedKeyboardAnimation } from "react-native-keyboard-controller";
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { fonts, makeStyles, radius, spacing, useTheme, ThemeColors } from "@/src/theme";
 import { fileUrl, money } from "@/src/api";
@@ -296,14 +297,17 @@ export function Skeleton({ height = 90, count = 3 }: { height?: number; count?: 
 export function Sheet({ visible, onClose, children, title, testID }: { visible: boolean; onClose: () => void; children: React.ReactNode; title?: string; testID?: string }) {
   const { colors } = useTheme();
   const ins = useSafeAreaInsets();
+  // Lift the sheet above the keyboard: pad its bottom by the keyboard height (falls back to the safe-area inset).
+  const { height: kb } = useReanimatedKeyboardAnimation();
+  const lift = useAnimatedStyle(() => ({ paddingBottom: Math.max(Math.abs(kb.value), ins.bottom) + spacing.xl }));
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={{ flex: 1, backgroundColor: colors.overlay }} onPress={onClose} testID={testID ? `${testID}-backdrop` : undefined} />
-      <View testID={testID} style={{ backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, paddingBottom: ins.bottom + spacing.xl, maxHeight: "88%" }}>
+      <Animated.View testID={testID} style={[{ backgroundColor: colors.surfaceSecondary, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, maxHeight: "92%" }, lift]}>
         <View style={{ alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border, marginBottom: spacing.lg }} />
         {title ? <Txt v="h2" style={{ marginBottom: spacing.lg }}>{title}</Txt> : null}
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>{children}</ScrollView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }

@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend-only regression + code review of the Sheet keyboard fix (src/ui.tsx), tested at 390x844 on the Expo web preview. Web: every sheet tested opens, renders without layout breaks, takes input and closes from the backdrop. Invite-tenant flow works: Room C 'Invite tenant' opens invite-tenant-sheet, invite-tenant-email can be focused and typed into (y=664-714, not clipped), Create invite shows the 'Invite created' toast, the sheet closes and 'Invite pending' appears. Regressions checked and passing: handyman invite sheet, cash-sheet (Record cash), cash-confirm ConfirmSheet (amount shown, cancel works), expense-sheet, assign-sheet (bank review), rules-sheet (multiline), add-room-sheet, replace-tenant invite sheet. Not testable right now: the tenant pay-rent confirm (rent is 'All paid' so pay-rent-button is not shown) and landlord approval confirm sheets (nothing is waiting for approval). The shared ConfirmSheet component was checked through cash-confirm instead. NATIVE RISK found in code review (the web preview cannot show it): the Sheet now moves content up for the keyboard twice, once by lifting the whole sheet with paddingBottom equal to the keyboard height and again with KeyboardAwareScrollView. On a real device the input may scroll up out of view behind the sheet title, which is the same symptom the user reported. Deprecated API detected: expo-router/unstable-native-tabs in src/tabs.tsx:4.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Property detail > Invite tenant sheet", "issues": ["invite-tenant-email has no placeholder (e.g. 'name@gmail.com'). Minor."]}
+    ],
+    "react_native_issues": [
+      {"component": "Sheet keyboard handling (moves content up twice)", "issue": "The Sheet lifts the whole sheet with an animated paddingBottom equal to the keyboard height, and it also wraps its children in KeyboardAwareScrollView (KASV). KASV uses the input position it measured when the input was focused, before the sheet moved (react-native-keyboard-controller KeyboardAwareScrollView/index.tsx maybeScroll, lines ~193-216). It also adds a bottom inset equal to the keyboard height, so it has room to scroll. For the invite sheet on an 844pt screen with a keyboard of about 300pt, the input bottom is at about 714, so KASV scrolls the content up by about 190pt while the sheet is also lifted by about 300pt. The visible scroll area of a short sheet is only about 190pt tall, so the email input can scroll up out of view under the title on iOS and Android. Reference: /app/frontend/src/ui.tsx:301-309"},
+      {"component": "expo-router/unstable-native-tabs", "issue": "Deprecated import; the runtime warns: 'expo-router/unstable-native-tabs is deprecated. Use expo-router/native-tabs instead.' Reference: /app/frontend/src/tabs.tsx:4"}
+    ]
+  },
+  "test_report_links": [".screenshots/k3_sheet.jpg", ".screenshots/k4_typed.jpg", ".screenshots/r1_hm.jpg", ".screenshots/r2_cash.jpg", ".screenshots/r3_exp.jpg", ".screenshots/r4_bank.jpg", ".screenshots/c1_cashconfirm.jpg", ".screenshots/p1_rules.jpg"],
+  "action_items": [
+    "HIGH: In Sheet (src/ui.tsx:309), use only one way of moving content above the keyboard. Recommended: keep the animated paddingBottom lift and replace KeyboardAwareScrollView with a plain ScrollView (keyboardShouldPersistTaps='handled'), or pass enabled={false} to KASV. Another option is to drop the manual lift and wrap the sheet in react-native-keyboard-controller's KeyboardAvoidingView (behavior='padding') with a plain ScrollView inside. Then check on Expo Go (iOS and Android) that invite-tenant-email stays visible with the keyboard open.",
+    "Migrate src/tabs.tsx:4 from 'expo-router/unstable-native-tabs' to 'expo-router/native-tabs'.",
+    "Optional: add placeholder text to the invite email fields (tenant and handyman)."
+  ],
+  "critical_code_review_comments": [
+    "ui.tsx Sheet: useReanimatedKeyboardAnimation is supported inside RN Modal on Android since keyboard-controller 1.13 (installed 1.22.7), KeyboardProvider wraps the root in app/_layout.tsx, and Math.abs(kb.value) correctly handles the negative height on iOS. The lift logic itself is correct.",
+    "ui.tsx Sheet: KeyboardAwareScrollView plus the manual lift moves content up twice (see react_native_issues). Its default insets mode also adds a ghost scroll area as tall as the keyboard.",
+    "Sheet wait timing: Modal animationType='slide' takes about 300-1000ms on web. Tests must wait after opening before tapping elements inside the sheet, otherwise they get 'Element is outside of the viewport' (this is a test-timing note, not a bug).",
+    "money.tsx cash sheet: choosing a room pre-fills the amount (for example 1200), so typing appends to it (1200 then '10' gives 120010). Worth selecting all text on focus or clearing the field. Minor UX point."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped as requested)", "frontend": "100% of executable web flows (10/10 sheets); native keyboard behavior unverified, risk flagged"},
+  "seed_data_creation": "Created and then cancelled the invite TEST_kb_tenant@example.com on Maple House Room C. The earlier pending invite test_roomc@example.com from iteration 1 was cancelled, so Room C is now vacant.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Landlord token: test-landlord-token (set localStorage rw_session_token, then reload). Maple House Room C unitId=aaf0b4969cb341db, Room A=67e36b9f4f104ce1. Tenant rent is fully paid, so pay-rent-button is absent. No pending approvals. After opening a sheet, wait about 1s for the slide animation before clicking inside it.",
+  "rca_of_issue": "User bug (keyboard hides the invite input): the Sheet originally had nothing that moved it above the keyboard. The new fix adds an animated paddingBottom lift, which addresses the cause, but it also adds KeyboardAwareScrollView, which can scroll the input up out of view a second time on native. Fix: keep only one way of moving content and check on a real device."
+}

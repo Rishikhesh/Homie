@@ -68,7 +68,7 @@ export default function PropertyDetail() {
       ) : null}
 
       <Sheet visible={!!inv} onClose={() => setInv(null)} title={`Invite a tenant to ${inv?.label}`} testID="invite-tenant-sheet">
-        <Field testID="invite-tenant-email" label="Tenant's Google email" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see the invite when they sign in to Rentwise as a tenant. No email is sent." />
+        <Field testID="invite-tenant-email" label="Tenant's Google email" placeholder="name@gmail.com" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} hint="They'll see the invite when they sign in to Rentwise as a tenant. No email is sent." />
         <BigButton testID="invite-tenant-send" style={{ marginTop: spacing.lg }} label="Create invite" onPress={async () => { try { await api(`/units/${inv.id}/invite`, { body: { email, replace: !!inv.replace } }); toast("Invite created"); setInv(null); setEmail(""); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
       </Sheet>
       <Sheet visible={rules !== null} onClose={() => setRules(null)} title="House rules" testID="rules-sheet">

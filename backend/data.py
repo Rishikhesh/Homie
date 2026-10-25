@@ -111,9 +111,10 @@ async def create_sample_home(landlord_id, real_tenant_id=None, real_handyman_id=
                                       "rating_avg": rating, "rating_count": cnt, "jobs_done": jobs, "earnings_total": 150.0 if u is hank else 0.0, "is_sample": True, "sample_owner_id": landlord_id})
     await db.landlord_handymen.insert_one({"landlord_id": landlord_id, "handyman_id": hank["id"]})
     pid = uid()
+    start_p = prev_period(period_of(), 6)
     prop = {"id": pid, "landlord_id": landlord_id, "name": "Maple House", "address": "12 Maple Ave", "city": "San Jose", "state": "CA", "zip": "95112",
             "timezone": tz_for("CA"), "rental_type": "rooms", "house_rules": "Quiet hours 10 pm–7 am. No smoking inside. Overnight guests up to 3 nights.",
-            "utilities": {"electric": "PG&E", "gas": "PG&E", "internet": "Xfinity"}, "photo": "preset:0", "is_sample": True, "created_at": iso()}
+            "utilities": {"electric": "PG&E", "gas": "PG&E", "internet": "Xfinity"}, "photo": "preset:0", "is_sample": True, "created_at": f"{start_p}-01T00:00:00+00:00"}
     await db.properties.insert_one(dict(prop))
     cur = period_of()
     start_p = prev_period(cur, 6)
