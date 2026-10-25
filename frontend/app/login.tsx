@@ -6,20 +6,16 @@ import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { useAuth } from "@/src/auth";
 import { BigButton, Txt, Ionicons } from "@/src/ui";
 import { LoginHero } from "@/src/LoginHero";
-import { radius, spacing, useTheme } from "@/src/theme";
+import { AgentTicker } from "@/src/AgentTicker";
+import { spacing, useTheme } from "@/src/theme";
 
-const POINTS = [
-  { icon: "construct", text: "Repairs handled" },
-  { icon: "cash", text: "Rent tracked" },
-  { icon: "thumbs-up", text: "You OK the money" },
-];
 
 export default function Login() {
   const { signIn, signingIn, error } = useAuth();
   const { colors } = useTheme();
   const ins = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const hero = Math.min(width - 48, height * 0.42, 380);
+  const hero = Math.min(width - 32, height * 0.44, 400);
   return (
     <View testID="login-screen" style={{ flex: 1, backgroundColor: colors.surface }}>
       <LinearGradient colors={[colors.brandSecondary, colors.brandTertiary, colors.surface]} locations={[0, 0.45, 0.8]} style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }} />
@@ -39,14 +35,8 @@ export default function Login() {
 
         <Animated.View entering={FadeInDown.duration(450).delay(200)} style={{ gap: spacing.md }}>
           <Txt v="title" style={{ fontSize: 32, lineHeight: 38 }}>Your rental,{"\n"}running itself.</Txt>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-            {POINTS.map((p) => (
-              <View key={p.text} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.surfaceSecondary, borderWidth: 0.5, borderColor: colors.border }}>
-                <Ionicons name={p.icon as any} size={15} color={colors.brandPrimary} />
-                <Txt v="label" style={{ fontSize: 14 }}>{p.text}</Txt>
-              </View>
-            ))}
-          </View>
+          <Txt v="body" color={colors.muted}>An AI doorman for your homes. You just OK the money.</Txt>
+          <AgentTicker />
           {error ? <Txt testID="login-error" v="label" color={colors.error}>{error}</Txt> : null}
           <BigButton testID="login-google-button" icon="logo-google" label="Continue with Google" onPress={signIn} loading={signingIn} style={{ marginTop: spacing.sm }} />
           <Txt v="small" style={{ textAlign: "center" }}>For landlords, tenants and handymen</Txt>

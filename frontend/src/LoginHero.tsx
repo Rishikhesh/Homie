@@ -1,8 +1,8 @@
 // Hand-built isometric "3D" hero for the sign-in screen: a little home on a floating tile with rent, repair and chat tokens orbiting it.
 import React, { useEffect } from "react";
 import { View } from "react-native";
-import Svg, { Circle, Defs, Ellipse, G, LinearGradient as Grad, Path, Polygon, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
-import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import Svg, { Circle, Defs, Ellipse, G, Line, LinearGradient as Grad, Path, Polygon, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
+import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
 // Illustration palette: fixed on purpose so the 3D shading reads the same in light and dark mode.
 const P = {
@@ -116,20 +116,107 @@ function House({ size }: { size: number }) {
   );
 }
 
-/** The whole floating scene. `size` = width of the scene box. */
+
+// ---------- Doorman agent: a friendly bot in a doorman's cap ----------
+const AEllipse = Animated.createAnimatedComponent(Ellipse);
+const ALine = Animated.createAnimatedComponent(Line);
+const ACircle = Animated.createAnimatedComponent(Circle);
+
+function Bot({ size }: { size: number }) {
+  const reduce = useReducedMotion();
+  const blink = useSharedValue(1);
+  useEffect(() => {
+    if (reduce) return;
+    blink.value = withRepeat(withSequence(withDelay(2600, withTiming(0.1, { duration: 90 })), withTiming(1, { duration: 120 })), -1);
+  }, [reduce, blink]);
+  const eye = useAnimatedProps(() => ({ ry: 5 * blink.value }));
+  return (
+    <Svg width={size} height={size} viewBox="0 0 100 100">
+      <Defs>
+        <Grad id="bh" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFFFFF" /><Stop offset="1" stopColor="#DDE7E0" /></Grad>
+        <Grad id="bc" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#5E8A6A" /><Stop offset="1" stopColor="#2F4636" /></Grad>
+        <RadialGradient id="bg" cx="50%" cy="55%" r="50%"><Stop offset="0" stopColor="#9FE3B4" stopOpacity={0.55} /><Stop offset="1" stopColor="#9FE3B4" stopOpacity={0} /></RadialGradient>
+      </Defs>
+      <Circle cx="50" cy="56" r="48" fill="url(#bg)" />
+      {/* head */}
+      <Rect x="22" y="38" width="56" height="44" rx="18" fill="url(#bh)" />
+      <Rect x="22" y="70" width="56" height="12" rx="6" fill="#C9D7CD" opacity={0.6} />
+      {/* visor screen + eyes */}
+      <Rect x="30" y="48" width="40" height="22" rx="11" fill="#1F2E24" />
+      <AEllipse cx="42" cy="59" rx="4.5" fill="#7DF0A6" animatedProps={eye} />
+      <AEllipse cx="58" cy="59" rx="4.5" fill="#7DF0A6" animatedProps={eye} />
+      {/* ear lights */}
+      <Circle cx="20" cy="60" r="4" fill="#F2C94C" /><Circle cx="80" cy="60" r="4" fill="#F2C94C" />
+      {/* doorman cap */}
+      <Path d="M26 38 Q50 14 74 38 Z" fill="url(#bc)" />
+      <Rect x="25" y="34" width="50" height="7" rx="3" fill="#F2C94C" />
+      <Path d="M24 41 Q50 50 76 41 L72 44 Q50 52 28 44 Z" fill="#26392C" />
+      <Circle cx="50" cy="27" r="3.4" fill="#F2C94C" />
+    </Svg>
+  );
+}
+
+type Orb = { kind: "coin" | "wrench" | "chat" | "check"; phase: number };
+const ORBS: Orb[] = [{ kind: "coin", phase: 0 }, { kind: "wrench", phase: Math.PI / 2 }, { kind: "chat", phase: Math.PI }, { kind: "check", phase: (3 * Math.PI) / 2 }];
+
+/** The whole scene: Doorman bot over a floating home, beaming tasks to tokens that orbit the house. `size` = box width. */
 export function LoginHero({ size = 320 }: { size?: number }) {
   const reduce = useReducedMotion();
-  const y = useSharedValue(0);
-  useEffect(() => { if (!reduce) y.value = withRepeat(withSequence(withTiming(-6, { duration: 2600, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 2600, easing: Easing.inOut(Easing.sin) })), -1); }, [reduce, y]);
-  const st = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
-  const k = size / 320;
+  const S = size;
+  const bob = useSharedValue(0);
+  const a = useSharedValue(0.4);
+  const flow = useSharedValue(0);
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    if (reduce) return;
+    bob.value = withRepeat(withSequence(withTiming(-6, { duration: 2600, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 2600, easing: Easing.inOut(Easing.sin) })), -1);
+    a.value = withRepeat(withTiming(0.4 + 2 * Math.PI, { duration: 16000, easing: Easing.linear }), -1);
+    flow.value = withRepeat(withTiming(-24, { duration: 900, easing: Easing.linear }), -1);
+    pulse.value = withRepeat(withTiming(1, { duration: 1800, easing: Easing.out(Easing.quad) }), -1);
+  }, [reduce, bob, a, flow, pulse]);
+  const houseSt = useAnimatedStyle(() => ({ transform: [{ translateY: bob.value }] }));
+  const cx = S * 0.5, cy = S * 0.66, rx = S * 0.45, ry = S * 0.15, tok = S * 0.17;
+  const bot = S * 0.26, bx = S * 0.5, by = S * 0.13;
   return (
-    <View testID="login-hero" accessible accessibilityLabel="A little home with rent, repairs and messages taken care of" style={{ width: size, height: size, alignSelf: "center" }}>
-      <Animated.View style={st}><House size={size} /></Animated.View>
-      <Float delay={0} style={{ left: 6 * k, top: 40 * k }}><Coin size={62 * k} /></Float>
-      <Float delay={500} amp={10} style={{ right: 4 * k, top: 120 * k }}><Token kind="wrench" size={64 * k} /></Float>
-      <Float delay={900} amp={7} style={{ left: 14 * k, top: 168 * k }}><Token kind="chat" size={58 * k} /></Float>
-      <Float delay={1300} amp={9} style={{ right: 36 * k, top: 22 * k }}><Token kind="check" size={56 * k} /></Float>
+    <View testID="login-hero" accessible accessibilityLabel="Doorman, an AI helper, taking care of rent, repairs and messages for a home" style={{ width: S, height: S, alignSelf: "center" }}>
+      {/* orbit track + beams */}
+      <Svg width={S} height={S} style={{ position: "absolute" }}>
+        <Ellipse cx={cx} cy={cy} rx={rx} ry={ry} stroke="#7FA88A" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="4 7" fill="none" />
+        {ORBS.map((o) => <Beam key={o.kind} o={o} a={a} flow={flow} from={{ x: bx, y: by + bot * 0.42 }} c={{ cx, cy, rx, ry }} />)}
+        <PulseRing x={bx} y={by + bot * 0.1} r={bot * 0.55} p={pulse} />
+      </Svg>
+      <Animated.View style={[{ position: "absolute", left: S * 0.11, top: S * 0.2, zIndex: 1 }, houseSt]}><House size={S * 0.78} /></Animated.View>
+      {ORBS.map((o) => <OrbToken key={o.kind} o={o} a={a} c={{ cx, cy, rx, ry }} size={tok} />)}
+      <Float amp={5} dur={1600} style={{ left: bx - bot / 2, top: by - bot / 2, zIndex: 4 }}><Bot size={bot} /></Float>
     </View>
+  );
+}
+
+type C = { cx: number; cy: number; rx: number; ry: number };
+function Beam({ o, a, flow, from, c }: { o: Orb; a: any; flow: any; from: { x: number; y: number }; c: C }) {
+  const props = useAnimatedProps(() => {
+    const t = a.value + o.phase;
+    const y = c.cy + c.ry * Math.sin(t);
+    return { x2: c.cx + c.rx * Math.cos(t), y2: y, strokeDashoffset: flow.value, strokeOpacity: Math.sin(t) > 0 ? 0.55 : 0.18 };
+  });
+  return <ALine x1={from.x} y1={from.y} stroke="#4CC07A" strokeWidth={2} strokeDasharray="3 9" strokeLinecap="round" animatedProps={props} />;
+}
+
+function PulseRing({ x, y, r, p }: { x: number; y: number; r: number; p: any }) {
+  const props = useAnimatedProps(() => ({ r: r * (0.9 + p.value * 0.9), strokeOpacity: 0.5 * (1 - p.value) }));
+  return <ACircle cx={x} cy={y} stroke="#4CC07A" strokeWidth={2} fill="none" animatedProps={props} />;
+}
+
+function OrbToken({ o, a, c, size }: { o: Orb; a: any; c: C; size: number }) {
+  const st = useAnimatedStyle(() => {
+    const t = a.value + o.phase;
+    const front = Math.sin(t);
+    const k = 0.78 + 0.22 * (front + 1) / 2;
+    return { opacity: 0.55 + 0.45 * (front + 1) / 2, zIndex: front > 0 ? 3 : 0, transform: [{ translateX: c.cx + c.rx * Math.cos(t) - size / 2 }, { translateY: c.cy + c.ry * front - size / 2 }, { scale: k }] };
+  });
+  return (
+    <Animated.View pointerEvents="none" style={[{ position: "absolute", left: 0, top: 0 }, st]}>
+      {o.kind === "coin" ? <Coin size={size} /> : <Token kind={o.kind} size={size} />}
+    </Animated.View>
   );
 }
