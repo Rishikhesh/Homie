@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, TextProps, View, ViewStyle, StyleProp, TextInputProps } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TextProps, View, ViewStyle, StyleProp, TextInputProps } from "react-native";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInDown, FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
@@ -14,38 +14,9 @@ import { useRouter } from "expo-router";
 
 type Tone = "success" | "warning" | "error" | "brand" | "neutral";
 
-// ---------- status ----------
-export function statusLabel(t: any, role: string = "landlord"): string {
-  const s = t.status;
-  const slot = t.picked_slot?.label;
-  switch (s) {
-    case "reported":
-    case "finding_handyman": return "Finding a handyman";
-    case "offered": return role === "handyman" ? "New offer" : "Handyman asked";
-    case "awaiting_tenant_time":
-      if (role === "tenant") return slot ? `You picked ${slot}` : "Pick a time";
-      return slot ? (t.quote_status === "approved" ? `Booking ${slot}` : "Waiting for cost approval") : "Waiting on a time";
-    case "booked": return `Visit booked · ${slot || ""}`.trim();
-    case "fixed_pending_confirm": return role === "tenant" ? "Is it fixed? Tell us" : "Fixed — waiting for tenant's OK";
-    case "payment_pending_approval": return role === "handyman" ? "Payment on the way" : "Fixed — waiting for payment";
-    case "closed": return role === "handyman" ? "Paid" : "Done";
-    case "self_fix_limit_pending": return "Checking the self-fix limit";
-    case "self_fix_approved": return `Fix it yourself · up to ${money(t.approved_amount)}`;
-    case "receipt_submitted":
-    case "reimbursement_pending_approval": return "Receipt sent — credit pending";
-    case "needs_landlord": return "Owner is arranging this";
-    case "cancelled": return "Cancelled";
-    default: return "In progress";
-  }
-}
-export function statusTone(t: any): Tone {
-  const s = t.status;
-  if (t.urgency === "emergency" && s !== "closed") return "error";
-  if (["booked", "closed"].includes(s)) return s === "closed" ? "neutral" : "success";
-  if (["awaiting_tenant_time", "fixed_pending_confirm", "payment_pending_approval", "self_fix_limit_pending", "reimbursement_pending_approval", "needs_landlord"].includes(s)) return "warning";
-  if (s === "cancelled") return "neutral";
-  return "brand";
-}
+// Text size multiplier for the Visual QA preview (the phone's own text size is respected up to 1.6x via maxFontSizeMultiplier).
+export const TextScale = createContext(1);
+
 function toneColors(c: ThemeColors, tone: Tone) {
   return {
     success: [c.successSoft, c.onSuccessSoft], warning: [c.warningSoft, c.onWarningSoft], error: [c.errorSoft, c.onErrorSoft],
@@ -57,16 +28,19 @@ function toneColors(c: ThemeColors, tone: Tone) {
 type V = "title" | "h2" | "body" | "label" | "caption" | "money" | "small";
 export function Txt({ v = "body", color, style, weight, ...p }: TextProps & { v?: V; color?: string; weight?: keyof typeof fonts }) {
   const { colors } = useTheme();
+  const k = useContext(TextScale);
   const base: any = {
-    title: { fontSize: 30, fontFamily: fonts.bold, letterSpacing: -0.5 },
-    h2: { fontSize: 20, fontFamily: fonts.bold },
+    title: { fontSize: 28, fontFamily: fonts.bold, letterSpacing: -0.5 },
+    h2: { fontSize: 19, fontFamily: fonts.bold },
     body: { fontSize: 16, fontFamily: fonts.regular, lineHeight: 22 },
     label: { fontSize: 15, fontFamily: fonts.semibold },
-    caption: { fontSize: 13, fontFamily: fonts.medium, color: colors.muted },
-    small: { fontSize: 13, fontFamily: fonts.regular, color: colors.muted },
-    money: { fontSize: 30, fontFamily: fonts.extrabold, letterSpacing: -0.5 },
+    caption: { fontSize: 13, fontFamily: fonts.medium, color: colors.onSurfaceTertiary },
+    small: { fontSize: 13, fontFamily: fonts.regular, color: colors.onSurfaceTertiary },
+    money: { fontSize: 30, lineHeight: 38, fontFamily: fonts.extrabold, letterSpacing: -0.5 },
   }[v];
-  return <Text {...p} style={[{ color: colors.onSurface }, base, weight ? { fontFamily: fonts[weight] } : null, color ? { color } : null, style]} />;
+  const flat: any = StyleSheet.flatten([base, style]) || {};
+  const scaled = k !== 1 ? { fontSize: (flat.fontSize || 16) * k, lineHeight: flat.lineHeight ? flat.lineHeight * k : undefined } : null;
+  return <Text maxFontSizeMultiplier={1.6} {...p} style={[{ color: colors.onSurface }, base, weight ? { fontFamily: fonts[weight] } : null, color ? { color } : null, style, scaled]} />;
 }
 
 // ---------- layout ----------
@@ -171,8 +145,8 @@ export function BigButton({ label, onPress, testID, disabled, loading, tone = "b
   const fg = tone === "danger" ? colors.onError : tone === "soft" ? colors.onBrandSecondary : colors.onBrandPrimary;
   return (
     <Pressable testID={testID} accessibilityRole="button" disabled={disabled || loading} onPress={onPress}
-      style={({ pressed }) => [{ minHeight: 52, borderRadius: radius.md, backgroundColor: bg, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, paddingHorizontal: spacing.lg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}>
-      {loading ? <ActivityIndicator color={fg} /> : <>{icon ? <Ionicons name={icon} size={20} color={fg} /> : null}<Txt v="label" color={fg} style={{ fontSize: 16 }}>{label}</Txt></>}
+      style={({ pressed }) => [{ minHeight: 50, borderRadius: radius.md, backgroundColor: bg, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8, paddingHorizontal: spacing.lg, opacity: disabled ? 0.45 : pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}>
+      {loading ? <ActivityIndicator color={fg} /> : <>{icon ? <Ionicons name={icon} size={19} color={fg} /> : null}<Txt v="label" color={fg} style={{ fontSize: 16 }} weight="semibold">{label}</Txt></>}
     </Pressable>
   );
 }
@@ -269,7 +243,7 @@ export function EmptyState({ icon = "leaf-outline", title, body, action, onActio
   const { colors } = useTheme();
   return (
     <Card testID={testID} style={{ alignItems: "flex-start", gap: spacing.sm }}>
-      <Ionicons name={icon} size={26} color={colors.brandPrimary} />
+      <Ionicons name={icon} size={20} color={colors.brandPrimary} />
       <Txt v="label">{title}</Txt>
       {body ? <Txt v="body" color={colors.muted}>{body}</Txt> : null}
       {action && onAction ? <BigButton testID={`${testID}-action`} label={action} onPress={onAction} tone="soft" style={{ alignSelf: "stretch", marginTop: spacing.sm }} /> : null}
@@ -323,7 +297,7 @@ export function ConfirmSheet({ visible, onClose, title, amount, body, confirmLab
   return (
     <Sheet visible={visible} onClose={onClose} testID={testID}>
       <Txt v="h2">{title}</Txt>
-      {amount != null ? <Txt v="money" style={{ fontSize: 44, marginVertical: spacing.md }} testID={`${testID}-amount`}>{money(amount)}</Txt> : null}
+      {amount != null ? <Txt v="money" style={{ fontSize: 32, lineHeight: 40, paddingTop: 2, marginVertical: spacing.sm }} testID={`${testID}-amount`}>{money(amount)}</Txt> : null}
       {body ? <Txt v="body" color={colors.muted} style={{ marginBottom: spacing.lg }}>{body}</Txt> : null}
       <BigButton testID={`${testID}-confirm`} label={confirmLabel} onPress={onConfirm} loading={loading} tone={danger ? "danger" : "brand"} />
       <TextButton testID={`${testID}-cancel`} label="Not now" onPress={onClose} color={colors.muted} />

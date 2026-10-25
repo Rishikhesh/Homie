@@ -628,8 +628,8 @@ async def stmt_view(st):
     prop = await db.properties.find_one({"id": st["property_id"]}, NF)
     areas = {a["key"]: a["label"] for a in (mo or {}).get("areas", [])}
     return {**st, "frame_times": times, "videos": videos, "areas": areas, "unit_label": unit["label"], "tenant_name": tn["name"] if tn else "",
-            "property_name": prop["name"], "move_in_date": (mi or {}).get("created_at", "")[:10], "move_out_date": mo.get("move_out_date"),
-            "return_days": mo.get("return_days"), "days_left": (datetime.fromisoformat(st["due_by"]).date() - now().date()).days}
+            "property_name": prop["name"], "move_in_date": (mi or {}).get("created_at", "")[:10], "move_out_date": (mo or {}).get("move_out_date"),
+            "return_days": (mo or {}).get("return_days"), "days_left": (datetime.fromisoformat(st["due_by"]).date() - now().date()).days}
 
 
 @router.get("/statements/{sid}")
@@ -746,7 +746,7 @@ async def approve_statement(a):
     await db.deposit_statements.update_one({"id": st["id"]}, {"$set": {"status": "sent", "sent_at": sent, "kept": st["total_deductions"],
                                                                      "refund": st["refund"], "total_deductions": st["total_deductions"]}})
     th = await tenant_thread(st["tenant_id"], st["landlord_id"])
-    await post(th["id"], f"Your move-out statement is ready: {money(st['refund'])} refund.", cards=[{"type": "statement", "statement_id": st["id"]}])
+    await post(th["id"], f"Your move-out statement is ready: {money(st['refund'])} refund.", cards=[{"type": "money", "ref_id": st["id"]}, {"type": "doc", "ref_id": st["id"]}])
     unit = await db.units.find_one({"id": st["unit_id"]}, NF)
     await activity(st["landlord_id"], f"Deposit statement sent for {unit['label']}: {money(st['total_deductions'])} kept, {money(st['refund'])} refunded.", None, "landlord")
 
@@ -770,7 +770,7 @@ async def drop_charge(a):
         await _refund(st, diff, f"Dropped charge: {it['title']}")
     th = await tenant_thread(st["tenant_id"], st["landlord_id"])
     await post(th["id"], f"Good news — the {it['title'].lower()} charge was dropped. {money(diff)} more is refunded (total refund {money(st['refund'])}). Here's the updated statement.",
-               cards=[{"type": "statement", "statement_id": st["id"]}])
+               cards=[{"type": "money", "ref_id": st["id"]}, {"type": "doc", "ref_id": st["id"]}])
     await activity(st["landlord_id"], f"Dropped the {money(it['charge'])} {it['title'].lower()} charge — refunded {money(diff)}", None, "landlord")
 
 

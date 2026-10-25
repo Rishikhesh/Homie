@@ -101,3 +101,7 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Visual language pass (main agent, iteration 13 request)
+- task: "See it, don't read it" UX pass (visual-language-prompt.md) — status kinds, visual building blocks, live chat cards, all role screens, words pass.
+- needs_retesting: true
+- backend tests: tests/test_status_kinds.py, tests/test_visual_cards.py (pass). Eval: python -m evals.visual

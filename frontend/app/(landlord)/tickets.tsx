@@ -16,15 +16,15 @@ export default function LandlordTickets() {
   const prog = list.filter((t) => !needs.includes(t) && !done.includes(t));
   return (
     <Screen tab testID="landlord-tickets-screen" refresh={<RefreshControl refreshing={false} onRefresh={reload} />}>
-      <LargeHeader title="Tickets" subtitle="Every repair across your homes" />
+      <LargeHeader title="Repairs" />
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
       {loading && !data ? <Skeleton /> : (
         <>
           <Section title="Needs you" testID="tickets-needs-section">
-            {needs.length ? needs.map((t, i) => <TicketRow key={t.id} t={t} role="landlord" index={i} />) : <EmptyState testID="tickets-needs-empty" title="Nothing waiting on you" body="Tickets that need your tap show up here." />}
+            {needs.length ? needs.map((t, i) => <TicketRow key={t.id} t={t} role="landlord" index={i} />) : <EmptyState testID="tickets-needs-empty" icon="checkmark-circle-outline" title="Nothing needs you" />}
           </Section>
           <Section title="In progress" testID="tickets-progress-section">
-            {prog.length ? prog.map((t, i) => <TicketRow key={t.id} t={t} role="landlord" index={i} />) : <EmptyState testID="tickets-progress-empty" title="No open repairs" body="When a tenant reports a problem, Rentwise opens a ticket and it appears here." />}
+            {prog.length ? prog.map((t, i) => <TicketRow key={t.id} t={t} role="landlord" index={i} />) : <EmptyState testID="tickets-progress-empty" icon="leaf-outline" title="No repairs" />}
           </Section>
           <TextButton testID="tickets-done-toggle" label={`Done (${done.length}) ${showDone ? "⌄" : "›"}`} onPress={() => setShowDone(!showDone)} />
           {showDone ? done.map((t, i) => <TicketRow key={t.id} t={t} role="landlord" index={i} />) : null}

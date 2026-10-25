@@ -6,7 +6,7 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import { usesNativeTabs } from "@/src/navigation";
 import { fonts, useTheme } from "@/src/theme";
 
-export type TabDef = { name: string; label: string; icon: string; sf: string };
+export type TabDef = { name: string; label: string; icon: string; sf: string; testID?: string };
 
 export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
   const { colors } = useTheme();
@@ -36,7 +36,7 @@ export function RoleTabs({ tabs }: { tabs: TabDef[] }) {
       {tabs.map((t) => (
         <Tabs.Screen key={t.name} name={t.name} options={{
           title: t.label,
-          tabBarButtonTestID: `tab-${t.label.toLowerCase()}`,
+          tabBarButtonTestID: t.testID || `tab-${t.label.toLowerCase()}`,
           tabBarIcon: ({ focused, color, size }: any) => <Ionicons name={(focused ? t.icon : `${t.icon}-outline`) as any} size={size - 2} color={color} />,
         } as any} />
       ))}

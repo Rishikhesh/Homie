@@ -4,22 +4,23 @@ import { useRouter } from "expo-router";
 import { api, money } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { openPdf } from "@/src/cards";
-import { Card, Divider, EmptyState, ErrorState, LargeHeader, Row, Screen, Section, Skeleton, StatusPill, TextButton, Txt } from "@/src/ui";
+import { Card, Divider, EmptyState, ErrorState, LargeHeader, Row, Screen, Section, Skeleton, TextButton, Txt } from "@/src/ui";
 import { PayButton } from "@/src/pay";
+import { BigNumber, DocTile, Status, StripCard } from "@/src/visual";
+import { statusOf } from "@/src/status";
 import { spacing, useTheme } from "@/src/theme";
 
-const TONE: any = { paid: "success", due: "warning", overdue: "error", upcoming: "neutral" };
 
 function StatementCard() {
   const router = useRouter();
   const { data: x } = useLive<any>(() => api("/inspections/mine"), 10000);
   if (!x?.statement) return null;
   return (
-    <Card agent testID="moveout-statement-card" style={{ marginBottom: spacing.xl }} onPress={() => router.push(`/statement/${x.statement.id}`)}>
-      <Txt v="label">Move-out statement</Txt>
-      <Txt v="money">{money(x.statement.refund)}<Txt v="body"> refund</Txt></Txt>
-      <Txt v="small">{x.statement.total_deductions ? `${money(x.statement.total_deductions)} kept for damage · ` : ""}See the photos and details ›</Txt>
-    </Card>
+    <StripCard kind="good" testID="moveout-statement-card" style={{ marginBottom: spacing.xl, gap: spacing.sm }} onPress={() => router.push(`/statement/${x.statement.id}`)}>
+      <BigNumber value={x.statement.refund} sign="in" caption="Deposit back" />
+      {x.statement.total_deductions ? <Status kind="none" label={`${money(x.statement.total_deductions)} kept from deposit`} size="sm" /> : null}
+      <Txt v="label">Move-out summary ›</Txt>
+    </StripCard>
   );
 }
 
@@ -28,33 +29,37 @@ export default function Payments() {
   const { data: d, error, loading, reload } = useLive<any>(() => api("/tenant/payments"), 3000);
   return (
     <Screen tab testID="tenant-payments-screen" refresh={<RefreshControl refreshing={false} onRefresh={reload} />}>
-      <LargeHeader title="Payments" subtitle={d ? `${money(d.unit.rent)}/mo · due on day ${d.unit.due_day}` : undefined} />
+      <LargeHeader title="Payments" />
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
       {loading && !d ? <Skeleton /> : d ? (
         <>
           {d.next_due || d.deposit_due ? (
-            <View style={{ marginBottom: spacing.xl }}><PayButton due={d.next_due} deposit={d.deposit_due} onPaid={reload} landlord={d.landlord_name.split(" ")[0]} /></View>
-          ) : <Card style={{ marginBottom: spacing.xl }} testID="all-paid-card"><Txt v="label">You&apos;re all paid up</Txt></Card>}
+            <StripCard kind={statusOf(d.next_due ? { ...d.next_due, due_day: d.unit.due_day } : null, "tenant", "rent").kind} style={{ marginBottom: spacing.xl, gap: spacing.sm }}>
+              <BigNumber value={d.next_due ? d.next_due.remaining : d.deposit_due} caption={d.next_due ? `${d.next_due.month.split(" ")[0]} rent` : "Deposit"} />
+              {d.next_due ? <Status {...statusOf({ ...d.next_due, due_day: d.unit.due_day }, "tenant", "rent")} /> : null}
+              <PayButton due={d.next_due} deposit={d.deposit_due} onPaid={reload} landlord={d.landlord_name.split(" ")[0]} />
+            </StripCard>
+          ) : <StripCard kind="good" style={{ marginBottom: spacing.xl }} testID="all-paid-card"><Status kind="good" label="All paid" /></StripCard>}
           <StatementCard />
           {d.payment_details ? <Txt v="small" style={{ marginBottom: spacing.lg }}>Other ways to pay: {d.payment_details}</Txt> : null}
-          <Section title="Month by month" testID="ledger-section">
+          <Section title="Rent history" testID="ledger-section">
             <Card>
               {d.ledger.map((r: any, i: number) => (
                 <View key={r.period} testID={`ledger-row-${r.period}`}>
                   {i ? <Divider /> : null}
                   <Row style={{ justifyContent: "space-between" }}>
                     <View style={{ flex: 1 }}>
-                      <Txt v="label">{r.month}</Txt>
-                      <Txt v="small">{money(r.due)}{r.credits ? ` (rent ${money(r.rent)} ${r.credits > 0 ? "−" : "+"} ${money(Math.abs(r.credits))})` : ""}</Txt>
+                      <Txt v="label">{r.month.split(" ")[0]}</Txt>
+                      <Txt v="small">{money(r.due)}{r.credits ? ` · ${money(Math.abs(r.credits))} ${r.credits > 0 ? "off" : "added"}` : ""}</Txt>
                     </View>
-                    <StatusPill label={r.status[0].toUpperCase() + r.status.slice(1)} tone={TONE[r.status]} />
+                    <Status size="sm" {...statusOf({ ...r, due_day: d.unit.due_day }, "tenant", "rent")} />
                   </Row>
-                  {r.payment_ids.map((pid: string) => <TextButton key={pid} testID={`receipt-${pid}`} icon="document-text-outline" label="Receipt (PDF)" onPress={() => openPdf(`/receipts/${pid}.pdf`)} />)}
+                  {r.payment_ids.map((pid: string) => <TextButton key={pid} testID={`receipt-${pid}`} icon="document-text-outline" label={`Receipt ${r.month.split(" ")[0]}`} onPress={() => openPdf(`/receipts/${pid}.pdf`)} />)}
                 </View>
               ))}
             </Card>
           </Section>
-          <Section title="Credits & charges" testID="credits-section">
+          <Section title="Off next rent" testID="credits-section">
             {d.credits.length ? (
               <Card>
                 {d.credits.map((c: any, i: number) => (
@@ -66,11 +71,11 @@ export default function Payments() {
                   </View>
                 ))}
               </Card>
-            ) : <EmptyState testID="credits-empty" title="No credits or charges" body="If your landlord approves a credit (like a repair you paid for), it shows here and comes off your next rent." />}
+            ) : <EmptyState testID="credits-empty" icon="leaf-outline" title="Nothing yet" />}
           </Section>
           <Section title="Deposit" testID="deposit-section">
             {d.payments.filter((p: any) => p.kind === "deposit").map((p: any) => (
-              <Card key={p.id}><Row style={{ justifyContent: "space-between" }}><Txt v="body">Deposit held · {money(p.amount)}</Txt><TextButton testID={`deposit-receipt-${p.id}`} label="Receipt" onPress={() => openPdf(`/receipts/${p.id}.pdf`)} /></Row></Card>
+              <Card key={p.id} style={{ gap: spacing.sm }}><BigNumber value={p.amount} sign="held" caption="Deposit held" small /><DocTile testID={`deposit-receipt-${p.id}`} name="Deposit receipt" icon="receipt" onView={() => openPdf(`/receipts/${p.id}.pdf`)} /></Card>
             ))}
             {!d.payments.some((p: any) => p.kind === "deposit") ? <Txt v="small">{d.deposit_due ? `${money(d.deposit_due)} due` : "No deposit due yet"}</Txt> : null}
           </Section>

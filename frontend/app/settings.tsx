@@ -70,6 +70,7 @@ export default function Settings() {
       {isLandlord && people.data && !people.data.length ? (
         <Section title="Sample home"><BigButton testID="sample-create-button" tone="soft" label="Add a sample home" onPress={() => setReset(true)} /></Section>
       ) : null}
+      {s.demo ? <TextButton testID="visual-qa-link" icon="color-palette-outline" label="Visual QA ›" onPress={() => router.push("/visual-qa")} /> : null}
       <BigButton testID="settings-sign-out" tone="danger" label="Switch account (sign out)" onPress={signOut} />
       <ConfirmSheet visible={reset} onClose={() => setReset(false)} title="Rebuild the sample home?" body="This resets Maple House, Tom, Maria and Hank to the starting point. Your real homes are not touched." confirmLabel="Reset sample data" danger loading={busy}
         onConfirm={async () => { setBusy(true); try { await api("/sample/reset", { method: "POST" }); toast("Sample home rebuilt"); setReset(false); people.reload(); facts.reload(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); } }} testID="reset-confirm" />

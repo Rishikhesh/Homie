@@ -1,0 +1,55 @@
+{
+  "summary": "Tested the iteration-13 follow-ups and the user's border, size and overflow complaints on the public URL at 390px and 360px, for tenant, landlord and handyman. A DOM sweep of 15+ screens (tenant home, Repairs, ticket detail, chat, Payments, lease; landlord home approvals, Money, Repairs, Homes, property, handymen, ticket; handyman Jobs; Visual QA, also at text 1.6x) found no colored left borders, no element sticking out of a card, chat bubble or tracker, no horizontal scroll and no clipped big numbers. Status still shows as icon + colored label. Sizes are moderate: BigNumber is 28px with 36px line height (22px small), status icons are 16/20px, buttons are 50px high, tracker circles are 30px (22px compact). The repair tracker fits inside the chat bubble card (a new card chat-ticket-card-bc1027c4b2c64e69 was created from 'My dryer stopped working'), on ticket-tracker, on compact Repairs rows and on tenant home, at both widths. Visit times use the server label ('Mon 10 am'). Handyman 'Waiting on tenant' is amber rgb(178,106,0). Tapping the whole DocTile row (lease-view-button) opens /lease/<id>. The landlord tab-properties label is 'Homes'. Regression flows pass: landlord approve → confirm → success-burst → card removed; tenant pay rent → burst → Paid; handyman Take job → number pad 1,2,0 → accept-time-0 → submit → burst → Booked 'Waiting on tenant'; Visual QA shows 'All 68 statuses map'. One fix from iteration 13 had not worked: the chat lease card. The agent sends ref_id='lease' (a placeholder), not an empty ref, so 'Can I see my lease?' got 'the file won't open' and no card. I fixed it in cards.py and it now shows card-doc, which opens the lease. I also fixed 5 small layout and format bugs (see updated_files). Backend regression suite: 18/18 iter13 tests, the Jev playbook test and the new 4/4 tests in test_iter14_cards.py all pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "cards.resolve_card doc (cards.py)", "issue": "FIXED by T1. The agent calls show_card(type=doc, ref_id='lease') (seen in tool_calls), but the earlier fix only covered an empty ref, so the doc card returned 403 and the reply said the file won't open. It now falls back to the caller's own signed lease when the ref matches no lease, payment or statement. Ownership checks are unchanged: another user's payment or statement still gets 403, and the landlord with a placeholder gets 403."},
+      {"endpoint": "cards.py doc receipt name", "issue": "FIXED by T1. Chat receipt DocTile showed 'Receipt 2026-10' (ISO-like). It now shows 'Receipt October 2026'."},
+      {"endpoint": "GET /api/statements/{sid} stmt_view (inspections.py:631)", "issue": "FIXED by T1: guarded mo None, which caused a 500. Also, move_in_date is still created_at[:10] (ISO) and move_out_date is ISO 'yyyy-mm-dd' in the API and in the statement PDF text (inspections.py:711). The frontend now formats them, but the PDF still prints ISO dates."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Chat repair card tracker labels", "issue": "FIXED by T1. Card bubbles were capped at 86% width, so the 5-step labels were cut off ('Report…', 'Handy…') and the PersonChip rating wrapped onto 2 lines ('★' above '4.8') at 360px. Bubbles that hold cards are now full width, and the PersonChip name and rating no longer wrap. At 360px the bold current-step label 'Handyman' is still slightly truncated.", "testID": "chat-ticket-card-<id>", "priority": "LOW"},
+      {"component": "ConfirmSheet amount", "issue": "FIXED by T1. The amount was 44px with no lineHeight (too large, and risks clipping on iOS). It is now 32px with a 40px line height. The 'money' text variant now has lineHeight 38, and the insights money values are 22/30.", "testID": "pay-confirm-amount / approval-confirm-<id>-amount", "priority": "LOW"},
+      {"component": "Statement photo labels", "issue": "FIXED by T1. They showed 'Move-in · 2026-10-25' / 'Move-out · 2026-11-30' (ISO). They now show 'Oct 25'. Not checked in the UI because the DB has no deposit statements.", "testID": "statement screen PhotoPair labels", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Landlord tab bar @360px", "issues": ["The 5th label is cut to 'Handym…' at 360px (fine at 390px). Consider 'Pros' or 'Team', or a smaller label font."]},
+      {"screen": "Chat composer", "issues": ["The 'Message Rentwise' placeholder wraps onto 2 lines at 390px and 360px, because the camera, gallery and mic buttons take up the width. Shorten it to 'Message' or narrow the icon buttons."]},
+      {"screen": "Chat rating card @360px", "issues": ["'Tap to rate' wraps onto 3 lines beside the 5 stars inside the bubble. Bubbles with cards are now full width, which may help; otherwise put the caption under the stars."]},
+      {"screen": "Handyman offer card", "issues": ["The BigNumber shows 'Today' with the caption 'Posted', so a date takes the hero slot. The cap or estimate would be more useful there."]},
+      {"screen": "Landlord approval card", "issues": ["The 'Repair ›' link sits lower than the Status row it belongs to (vertical misalignment)."]},
+      {"screen": "Visual QA", "issues": ["Rows are still labelled 'Card strip · good/waiting/you/none' even though the strips were removed. Rename them."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_iter14_cards.py", "/app/tests/overflow_check.js", "/app/test_reports/pytest/pytest_iter14.xml"],
+  "action_items": [
+    "Statement PDF (inspections.py:711) still prints ISO move-in/move-out dates. Format them like the app does ('Oct 25').",
+    "Consider having the agent context include the tenant's lease id, so the agent does not invent ref_id placeholders (the cards.py fallback covers it for now).",
+    "Polish: landlord tab label cut off at 360px, chat composer placeholder wrapping, 'Tap to rate' wrapping, offer-card hero showing 'Today', Visual QA 'Card strip' labels."
+  ],
+  "critical_code_review_comments": [
+    "The Tracker's non-compact labels are 11px with numberOfLines=1. In narrow containers and at text 1.6x they cut off to 3 letters. It does not overflow, but readability is weak. The icon and color carry the meaning, so this is acceptable.",
+    "AcceptSheet presetSlots build naive wall-clock ISO strings from the device clock, so the handyman sees device-timezone 'Mon, Oct 26 · 10 am' while the server labels it in the property timezone. These matched in testing (UTC browser, LA property) because the wall time is taken as property-local. Confirm this is intended.",
+    "No deprecated Expo packages found (expo-av, expo-barcode-scanner and expo-background-fetch are absent)."
+  ],
+  "updated_files": [
+    "/app/backend/cards.py",
+    "/app/backend/inspections.py",
+    "/app/frontend/src/chat.tsx",
+    "/app/frontend/src/visual.tsx",
+    "/app/frontend/src/ui.tsx",
+    "/app/frontend/src/insights.tsx",
+    "/app/frontend/app/statement/[id].tsx",
+    "/app/backend/tests/test_iter14_cards.py"
+  ],
+  "success_rate": {"backend": "100% (23/23 regression + new)", "frontend": "~95% (all requested checks pass after T1 fixes; doc card failed before the fix)"},
+  "seed_data_creation": "Via Tom's chat: ticket bc1027c4b2c64e69 'Dryer broken again' (self-fix approved by the landlord) and ticket 81c50e2d23664797 'Bathroom sink pipe leak' (Hank accepted at $120 for Mon 10 am, waiting on the tenant to pick). Approval d71e917782a541f0 approved. October rent paid for Tom.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Tokens: /app/memory/test_credentials.md (set localStorage rw_session_token). /app/tests/overflow_check.js is a page.evaluate script that reports left borders, children outside card/row/chat-msg/tracker bounds, text >=26px and clipped text. Read it with open() inside browser_automation. Expo keeps earlier screens in the DOM, so use :visible or go straight to routes such as /ticket/<id>. Tenant payments API is /api/tenant/payments. Chat message order in the DOM is newest first (inverted list). The DB has no deposit statements, so the statement UI was not exercised.",
+  "rca_of_issue": "Doc card: tool_calls shows show_card {'type':'doc','ref_id':'lease'}. resolve_card only fell back to the caller's lease when ref was empty, so 'lease' matched no lease, payment or statement → _deny() → the agent got a 403 and wrote 'the file won't open'. Mitigation: fall back to the caller's own lease when the ref matches nothing. Verified in the UI: card-doc appears and opens /lease/fce4d36fb483446e."
+}

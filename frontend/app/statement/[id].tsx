@@ -7,7 +7,11 @@ import { useAuth } from "@/src/auth";
 import { openPdf } from "@/src/cards";
 import { PhotoButtons } from "@/src/inputs";
 import { BigButton, Card, Chip, ChipRow, ConfirmSheet, ErrorState, Field, LargeHeader, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
-import { CAT_LABEL, Countdown, Frame, mmss, Video } from "@/src/inspect";
+import { CAT_LABEL, Frame, mmss, Video } from "@/src/inspect";
+import { BigNumber, Countdown as Ring, MOVE_OUT_STEPS, Status, StripCard, Tracker } from "@/src/visual";
+import { Kind, when } from "@/src/status";
+
+const CAT_KIND: Record<string, Kind> = { damage: "you", check: "waiting", pre_existing: "none", normal_wear: "none", reported_repair: "none" };
 import { spacing, useTheme } from "@/src/theme";
 
 export default function StatementScreen() {
@@ -38,15 +42,16 @@ export default function StatementScreen() {
   const charges = items.filter((x: any) => x.category === "damage");
   const checks = items.filter((x: any) => x.category === "check");
   const free = items.filter((x: any) => !["damage", "check"].includes(x.category));
-  const label = (side: "in" | "out", fid: string) => `${side === "in" ? `Move-in · ${s.move_in_date || "—"}` : `Move-out · ${s.move_out_date}`}${s.frame_times?.[fid] != null ? ` · ${mmss(s.frame_times[fid])}` : ""}`;
+  const day = (x?: string | null) => { if (!x) return "—"; const d = new Date(`${String(x).slice(0, 10)}T12:00:00`); return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }); };
+  const label = (side: "in" | "out", fid: string) => `${side === "in" ? `Move-in · ${day(s.move_in_date)}` : `Move-out · ${day(s.move_out_date)}`}${s.frame_times?.[fid] != null ? ` · ${mmss(s.frame_times[fid])}` : ""}`;
 
   const Item = ({ it }: { it: any }) => {
     const [price, setPrice] = useState(String(it.charge));
     return (
-      <Card testID={`statement-item-${it.id}`} style={{ gap: spacing.sm, opacity: it.removed ? 0.5 : 1 }}>
+      <StripCard kind={it.removed ? "none" : CAT_KIND[it.category] || "none"} testID={`statement-item-${it.id}`} style={{ gap: spacing.sm, opacity: it.removed ? 0.5 : 1 }}>
         <Row style={{ justifyContent: "space-between" }}>
           <Txt v="label" style={{ flex: 1, textDecorationLine: it.removed ? "line-through" : "none" }}>{s.areas?.[it.area_key] || it.area_key} · {it.title}</Txt>
-          {it.category === "damage" ? <Txt v="label">{money(it.charge)}</Txt> : <StatusPill label={CAT_LABEL[it.category]} tone="neutral" />}
+          {it.category === "damage" ? <Txt v="label" style={{ fontSize: 16 }}>{money(it.charge)}</Txt> : null}
         </Row>
         {it.move_in_frame_id || it.move_out_frame_id ? (
           <Row style={{ alignItems: "flex-start" }}>
@@ -54,6 +59,7 @@ export default function StatementScreen() {
             <Frame testID={`frame-out-${it.id}`} id={it.move_out_frame_id} box={it.box} label={label("out", it.move_out_frame_id)} onPress={it.move_out_frame_id ? () => setFull({ fid: it.move_out_frame_id, side: "out", area: it.area_key, box: it.box }) : undefined} />
           </Row>
         ) : null}
+        <Status size="sm" kind={it.removed ? "none" : CAT_KIND[it.category] || "none"} label={CAT_LABEL[it.category]} />
         <Row>{it.severity ? <StatusPill label={`Severity ${it.severity}/5`} tone={it.severity >= 4 ? "error" : "warning"} /> : null}{it.source === "landlord" ? <StatusPill label="Added by you" tone="neutral" /> : null}{it.disputed ? <StatusPill label="Dropped after question" tone="success" /> : null}</Row>
         <Txt v="body">{it.explanation}</Txt>
         {canEdit ? (
@@ -73,18 +79,18 @@ export default function StatementScreen() {
         ) : !isLandlord && it.category === "damage" && !it.removed ? (
         <TextButton testID={`question-item-${it.id}`} icon="chatbubble-ellipses-outline" label="Question this" onPress={() => router.push({ pathname: "/(tenant)/chat", params: { q: `I'd like to question the move-out charge "${it.title}" (${money(it.charge)}).` } } as any)} />
         ) : null}
-      </Card>
+      </StripCard>
     );
   };
 
   return (
     <Screen testID="statement-screen" refresh={<RefreshControl refreshing={false} onRefresh={() => { setLocal(null); reload(); }} />}>
-      <LargeHeader title="Move-out statement" subtitle={`${s.tenant_name} · ${s.unit_label} · ${s.status === "draft" ? "Draft" : "Sent"}`} back={() => router.back()} />
+      <LargeHeader title="Move-out summary" subtitle={`${s.tenant_name.split(" ")[0]} · ${s.unit_label}`} back={() => router.back()} />
       <Card agent testID="statement-totals" style={{ gap: spacing.sm, marginBottom: spacing.xl }}>
-        <Txt v="caption">Refund to {first}</Txt>
-        <Txt v="money" testID="statement-refund" style={{ fontSize: 40 }}>{money(s.refund)}</Txt>
-        <Txt v="body">Deposit {money(s.deposit)} · Deductions {money(s.total_deductions)}</Txt>
-        {s.status === "draft" ? <Countdown daysLeft={s.days_left} dueBy={s.due_by} /> : null}
+        <Tracker steps={MOVE_OUT_STEPS} current={s.status === "draft" ? 3 : 5} mine={s.status === "draft" && isLandlord} />
+        <BigNumber testID="statement-refund" value={s.refund} sign="in" caption={`Deposit back to ${first}`} />
+        <Status size="sm" kind={s.total_deductions ? "none" : "good"} label={`${money(s.total_deductions)} kept from ${money(s.deposit)}`} />
+        {s.status === "draft" ? <Ring days={s.days_left} total={30} caption={`Refund due ${when(s.due_by)}`} /> : null}
         {s.over_deposit ? <Txt v="label" color={colors.error}>Damage is {money(s.over_deposit)} more than the deposit. Rentwise doesn&apos;t collect this; talk to {first}.</Txt> : null}
         {isLandlord ? <Txt v="small">Checked {s.stats?.pairs_screened || 0} views · {s.stats?.sent_to_sonnet || 0} looked at closely</Txt> : null}
       </Card>
@@ -97,10 +103,10 @@ export default function StatementScreen() {
           {showFree ? free.map((it: any) => <Item key={it.id} it={it} />) : null}
         </Section>
       ) : null}
-      {canEdit ? <BigButton testID="approve-statement-button" label={`Approve and send to ${first}`} style={{ minHeight: 56 }} onPress={() => setConfirm(true)} /> : null}
+      {canEdit ? <BigButton testID="approve-statement-button" label={`OK and send to ${first}`} style={{ minHeight: 56 }} onPress={() => setConfirm(true)} /> : null}
       {s.status === "sent" ? <TextButton testID="statement-pdf-button" icon="document-text-outline" label="Statement (PDF)" onPress={() => openPdf(`/statements/${id}/pdf`)} /> : null}
 
-      <ConfirmSheet visible={confirm} onClose={() => setConfirm(false)} title={`Send to ${first} and refund?`} amount={s.refund} body="Simulated — no real money moves. The statement goes to the tenant." confirmLabel="Approve and send" loading={busy} testID="approve-statement-confirm"
+      <ConfirmSheet visible={confirm} onClose={() => setConfirm(false)} title={`Send to ${first} and refund?`} amount={s.refund} body="Simulated. No real money moves." confirmLabel="OK and send" loading={busy} testID="approve-statement-confirm"
         onConfirm={async () => {
           setBusy(true);
           try {

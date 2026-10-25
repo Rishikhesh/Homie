@@ -3,50 +3,19 @@ import { FlatList, Pressable, Switch, TextInput, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import * as Haptics from "expo-haptics";
 import { api, authedUrl, money } from "@/src/api";
 import { useLive } from "@/src/useLive";
-import { AgentMark, Chip, ChipRow, FileImage, Ionicons, StatusPill, Txt, statusLabel, statusTone, useToast, TextButton } from "@/src/ui";
+import { AgentMark, Chip, ChipRow, FileImage, Ionicons, Txt, useToast, TextButton } from "@/src/ui";
 import { PhotoButtons, PhotoStrip } from "@/src/inputs";
 import { fonts, radius, spacing, useTheme } from "@/src/theme";
 import { useAuth } from "@/src/auth";
+import { LIVE_TYPES, LiveCard } from "@/src/chatcards";
+import { More } from "@/src/visual";
+import { Role } from "@/src/status";
 import { MicButton, SpeakButton, speak, stopSpeaking } from "@/src/voice";
 import { storage } from "@/src/utils/storage";
 
 const HANDS_FREE_KEY = "rw_hands_free";
-
-function SlotCard({ ticketId, role }: { ticketId: string; role: string }) {
-  const { data: t, reload } = useLive<any>(() => api(`/tickets/${ticketId}`), 5000, [ticketId]);
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  if (!t) return null;
-  const open = role === "tenant" && t.status === "awaiting_tenant_time";
-  return (
-    <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
-      <ChipRow>
-        {(t.slots || []).map((s: any, i: number) => (
-          <Chip key={s.iso} testID={`slot-chip-${i}`} icon="time-outline" label={s.label} selected={t.picked_slot?.iso === s.iso}
-            onPress={open && !busy ? async () => { setBusy(true); try { await api(`/tickets/${ticketId}/pick-slot`, { body: { slot: s.iso } }); Haptics.selectionAsync().catch(() => {}); toast(`Picked ${s.label}`); reload(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); } } : undefined} />
-        ))}
-      </ChipRow>
-    </View>
-  );
-}
-
-function ConfirmCard({ ticketId }: { ticketId: string }) {
-  const { data: t, reload } = useLive<any>(() => api(`/tickets/${ticketId}`), 5000, [ticketId]);
-  const toast = useToast();
-  if (!t || t.status !== "fixed_pending_confirm") return null;
-  const send = async (ok: boolean) => {
-    try { await api(`/tickets/${ticketId}/confirm`, { body: { ok } }); toast(ok ? "Thanks! Glad it's fixed" : "Got it — asking them to come back"); reload(); } catch (e: any) { toast(e.message, "error"); }
-  };
-  return (
-    <View style={{ flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm }}>
-      <Chip testID="confirm-fixed-yes" icon="thumbs-up" label="Yes, it works" onPress={() => send(true)} />
-      <Chip testID="confirm-fixed-no" icon="thumbs-down" label="Not yet" onPress={() => send(false)} />
-    </View>
-  );
-}
 
 export function RateCard({ ticketId }: { ticketId: string }) {
   const { data: t, reload } = useLive<any>(() => api(`/tickets/${ticketId}`), 0, [ticketId]);
@@ -66,35 +35,18 @@ export function RateCard({ ticketId }: { ticketId: string }) {
   );
 }
 
-function TicketMini({ ticketId, role, label }: { ticketId: string; role: string; label?: string }) {
-  const { data: t } = useLive<any>(() => api(`/tickets/${ticketId}`), 6000, [ticketId]);
-  const router = useRouter();
-  const { colors } = useTheme();
-  if (!t) return null;
-  return (
-    <Pressable testID={`chat-ticket-card-${ticketId}`} onPress={() => router.push(`/ticket/${ticketId}`)} style={{ marginTop: spacing.sm, padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceSecondary, borderWidth: 0.5, borderColor: colors.border, gap: 6 }}>
-      <Txt v="label">{t.title}</Txt>
-      <StatusPill label={statusLabel(t, role)} tone={statusTone(t)} />
-      <Txt v="small" color={colors.brandPrimary}>{label || "Open ticket ›"}</Txt>
-    </Pressable>
-  );
-}
-
-function CardView({ c, role }: { c: any; role: string }) {
+function CardView({ c, role, onAnswer }: { c: any; role: string; onAnswer?: (t: string) => void }) {
   const router = useRouter();
   switch (c.type) {
-    case "ticket": return <TicketMini ticketId={c.ticket_id} role={role} />;
-    case "slots": return <SlotCard ticketId={c.ticket_id} role={role} />;
-    case "confirm_fix": return <ConfirmCard ticketId={c.ticket_id} />;
     case "rate": return <RateCard ticketId={c.ticket_id} />;
-    case "receipt_request": return <TicketMini ticketId={c.ticket_id} role={role} label="Upload receipt & after photo ›" />;
-    case "offer": return <TicketMini ticketId={c.ticket_id} role={role} label="Open job to accept or decline ›" />;
-    case "receipt": return <TicketMini ticketId={c.ticket_id} role={role} label="Paid receipt ›" />;
+    case "receipt_request": return <TextButton testID={`chat-receipt-request-${c.ticket_id}`} icon="receipt-outline" label="Send receipt and photo ›" onPress={() => router.push(`/ticket/${c.ticket_id}`)} />;
+    case "offer": return <TextButton testID={`chat-offer-${c.ticket_id}`} icon="construct-outline" label="Open job ›" onPress={() => router.push(`/ticket/${c.ticket_id}`)} />;
+    case "receipt": return <LiveCard c={{ type: "repair", ref_id: c.ticket_id }} role={role as Role} />;
     case "payment_receipt": return <TextButton testID={`chat-receipt-${c.payment_id}`} icon="document-text-outline" label="View receipt (PDF)" onPress={() => WebBrowser.openBrowserAsync(authedUrl(`/receipts/${c.payment_id}.pdf`))} />;
     case "lease": return <TextButton testID="chat-open-lease" icon="document-text-outline" label="Open lease" onPress={() => router.push(`/lease/${c.lease_id}`)} />;
-    case "statement": return <TextButton testID={`chat-statement-${c.statement_id}`} icon="document-text-outline" label="Open move-out statement ›" onPress={() => router.push(`/statement/${c.statement_id}`)} />;
+    case "statement": return <TextButton testID={`chat-statement-${c.statement_id}`} icon="document-text-outline" label="Open move-out summary ›" onPress={() => router.push(`/statement/${c.statement_id}`)} />;
     case "inspection": return <TextButton testID={`chat-inspection-${c.inspection_id}`} icon="videocam-outline" label="Start the check ›" onPress={() => router.push(`/inspection/${c.inspection_id}`)} />;
-    default: return null;
+    default: return LIVE_TYPES.includes(c.type) ? <LiveCard c={c} role={role as Role} onAnswer={onAnswer} /> : null;
   }
 }
 
@@ -173,13 +125,14 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
           const user = m.role === "user";
           return (
             <View style={{ alignItems: user ? "flex-end" : "flex-start" }}>
-              <View testID={`chat-msg-${m.id}`} style={{ maxWidth: "86%", padding: spacing.md, borderRadius: 18, borderBottomRightRadius: user ? 6 : 18, borderBottomLeftRadius: user ? 18 : 6,
+              <View testID={`chat-msg-${m.id}`} style={{ maxWidth: m.cards?.length ? "100%" : "86%", width: m.cards?.length ? "100%" : undefined, padding: spacing.md, borderRadius: 18, borderBottomRightRadius: user ? 6 : 18, borderBottomLeftRadius: user ? 18 : 6,
                 backgroundColor: user ? (mine ? colors.brandPrimary : colors.surfaceTertiary) : m.role === "system" ? colors.errorSoft : colors.surfaceSecondary, borderWidth: user ? 0 : 0.5, borderColor: colors.border }}>
                 {!user ? <View style={{ marginBottom: 4 }}><AgentMark small /></View> : null}
-                {m.text ? <Txt v="body" color={user && mine ? colors.onBrandPrimary : undefined}>{m.text}</Txt> : null}
+                {m.text ? <Txt v="body" style={!user ? { fontFamily: fonts.medium } : undefined} color={user && mine ? colors.onBrandPrimary : undefined}>{m.text}</Txt> : null}
+                {m.details ? <More testID={`chat-more-${m.id}`}><Txt v="body">{m.details}</Txt></More> : null}
                 {!user && m.role !== "system" && m.text ? <SpeakButton messageId={m.id} /> : null}
                 {m.attachments?.length ? <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>{m.attachments.map((a: string) => <FileImage key={a} id={a} size={120} />)}</View> : null}
-                {(m.cards || []).map((c: any, i: number) => <CardView key={i} c={c} role={role} />)}
+                {(m.cards || []).map((c: any, i: number) => <CardView key={i} c={c} role={role} onAnswer={(t) => send(t)} />)}
               </View>
             </View>
           );
@@ -192,7 +145,7 @@ export function Chat({ threadId, quickReplies = [], bottomPad = 0, readOnlyNote 
           <View style={{ flexDirection: "row", alignItems: "flex-end", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: quickReplies.length ? 0 : spacing.sm }}>
             <PhotoButtons compact testID="chat-photo" onUploaded={(id) => setAtts((a) => [...a, id])} />
             <MicButton disabled={busy} onText={onSpoken} />
-            <TextInput testID="chat-input" value={text} onChangeText={setText} placeholder="Message Rentwise" placeholderTextColor={colors.muted} multiline
+            <TextInput testID="chat-input" value={text} onChangeText={setText} placeholder="Message" placeholderTextColor={colors.muted} multiline
               style={{ flex: 1, minHeight: 44, maxHeight: 120, borderRadius: 22, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 11, backgroundColor: colors.surfaceTertiary, color: colors.onSurface, fontFamily: fonts.regular, fontSize: 16 }} />
             <Pressable testID="chat-send-button" accessibilityLabel="Send" onPress={() => send()} disabled={busy || (!text.trim() && !atts.length)}
               style={{ height: 44, width: 44, borderRadius: 22, backgroundColor: colors.brandPrimary, alignItems: "center", justifyContent: "center", opacity: busy || (!text.trim() && !atts.length) ? 0.5 : 1 }}>

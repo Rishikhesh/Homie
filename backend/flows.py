@@ -95,9 +95,9 @@ async def offer_job(ticket, h, after_decline_of=None):
     await timeline(ticket["id"], f"Asked {h['name']} to take the job")
     await activity(ticket["landlord_id"], f"Asked {first(h['name'])} to fix the {ticket['title'].lower()}", ticket["id"])
     if after_decline_of:
-        await tell_tenant(ticket, f"{first(after_decline_of)} can't make it, so I've asked {h['name']}{note} instead. I'll update you shortly.")
+        await tell_tenant(ticket, f"{first(after_decline_of)} can't make it, so I've asked {h['name']}{note} instead. ")
     else:
-        await tell_tenant(ticket, f"I've asked {h['name']}{note}. I'll update you shortly.")
+        await tell_tenant(ticket, f"I've asked {h['name']}{note}. ")
     return f"Offered the job to {h['name']}{note}."
 
 
@@ -119,8 +119,8 @@ async def handyman_accept(ticket, hid, quote, slots):
     await activity(ticket["landlord_id"], f"{first(h['name'])} quoted {money(quote)} for the {ticket['title'].lower()}", ticket["id"])
     labels = " or ".join(s["label"] for s in slot_objs)
     extra = f" (you mentioned {pref['label']} earlier)" if pref else ""
-    await tell_tenant(ticket, f"{h['name']} can come {labels}{extra}. Which works for you?", cards=[{"type": "slots", "ticket_id": ticket["id"]}])
-    await tell_handyman(ticket, "Thanks! I've sent your times to the tenant and your quote to the owner. I'll confirm the visit here.")
+    await tell_tenant(ticket, f"{h['name']} can come {labels}{extra}. Which works for you?", cards=[{"type": "choice_time", "ref_id": ticket["id"]}])
+    await tell_handyman(ticket, "Thanks! Times sent to the tenant, price sent to the owner.")
 
 
 def localize(s, tz):
@@ -166,7 +166,7 @@ async def pick_slot(ticket, slot_iso):
     await activity(ticket["landlord_id"], f"{first(tenant['name'])} picked {slot['label']}", ticket["id"])
     booked = await maybe_book(ticket)
     if not booked:
-        await tell_tenant(ticket, f"Got it — {slot['label']}. I'll confirm the visit as soon as the cost is approved.")
+        await tell_tenant(ticket, f"Got it, {slot['label']}. Waiting for the owner's OK.")
     return booked
 
 
@@ -184,7 +184,7 @@ async def maybe_book(ticket):
     heads = f" Heads up: {'; '.join(facts)}." if facts else ""
     access = f" Access: {unit.get('access_notes')}." if unit.get("access_notes") else ""
     await tell_handyman(ticket, f"Booked: {slot['label']} at {prop['address']}, {prop['city']} ({unit['label']}).{heads}{access} Tap Mark fixed when you're done.")
-    await tell_tenant(ticket, f"You're booked: {h['name']} will come {slot['label']}. Please clear the area so he can get to it.")
+    await tell_tenant(ticket, f"Booked: {first(h['name'])} comes {slot['label']}.")
     await timeline(ticket["id"], f"Visit booked for {slot['label']}")
     await activity(ticket["landlord_id"], f"Booked {first(h['name'])} for {slot['label']}", ticket["id"])
     return True
@@ -208,7 +208,7 @@ async def mark_fixed(ticket, hid, final_amount, after_photo, receipt=None):
     await timeline(ticket["id"], f"{h['name']} marked it fixed ({money(final_amount)})", "handyman")
     await activity(ticket["landlord_id"], f"{first(h['name'])} says the {ticket['title'].lower()} is fixed", ticket["id"])
     await tell_tenant(ticket, f"{first(h['name'])} says the {ticket['title'].lower()} is fixed. Is it working now?",
-                      cards=[{"type": "confirm_fix", "ticket_id": ticket["id"]}], attachments=[after_photo])
+                      cards=[{"type": "yes_no", "ref_id": ticket["id"], "question": "fixed"}], attachments=[after_photo])
     await tell_handyman(ticket, "Thanks! I've asked the tenant to check it. Payment goes out once they confirm.")
 
 
@@ -229,7 +229,7 @@ async def confirm_fixed(ticket, ok, note=""):
     await timeline(ticket["id"], f"Tenant says it's not fixed yet{': ' + note if note else ''}", "tenant")
     await activity(ticket["landlord_id"], f"Tenant says the {ticket['title'].lower()} still isn't fixed — reopened", ticket["id"])
     await tell_handyman(ticket, f"The tenant says it's still not working{': ' + note if note else ''}. Could you take another look? Mark fixed again when done.")
-    await tell_tenant(ticket, f"Sorry about that. I've asked {first(h['name'])} to come back and look again.")
+    await tell_tenant(ticket, f"{first(h['name'])} is coming back to look again.")
     return "Reopened; handyman asked to return."
 
 
@@ -281,7 +281,7 @@ async def submit_receipt(ticket, receipt_id, after_photo, amount, file_hash, rea
                           extra={"limit": limit})
     await timeline(ticket["id"], f"Tenant sent a receipt ({money(amt)}) and after photo", "tenant")
     await activity(ticket["landlord_id"], f"{first(tenant['name'])} sent a {money(amt)} receipt for the {ticket['title'].lower()}", ticket["id"])
-    await tell_tenant(ticket, "Thanks — I've sent your receipt for approval. I'll tell you as soon as the credit is on your account.")
+    await tell_tenant(ticket, "Receipt sent. Waiting for the owner's OK.")
 
 
 # ---------- approvals ----------
@@ -334,7 +334,7 @@ async def apply_approval(a, amt, option):
         await timeline(t["id"], f"Owner approved {money(amt)}", "landlord")
         await activity(a["landlord_id"], f"You approved {money(amt)} for the {t['title'].lower()}", t["id"], "landlord")
         if not await maybe_book(t):
-            await tell_handyman(t, f"Your {money(amt)} quote is approved. Waiting for the tenant to pick a time.")
+            await tell_handyman(t, f"Price OK'd: {money(amt)}. Waiting for the tenant's time.")
     elif k == "quote_overage":
         await db.tickets.update_one({"id": t["id"]}, {"$set": {"approved_amount": amt}})
         await db.approvals.update_one({"ticket_id": t["id"], "kind": "handyman_payment", "status": "pending"}, {"$set": {"amount": amt, "title": f"Pay {money(amt)}"}})
@@ -348,14 +348,14 @@ async def apply_approval(a, amt, option):
         await db.tickets.update_one({"id": t["id"]}, {"$set": {"summary": summary}})
         await timeline(t["id"], f"Paid {h['name']} {money(amt)} (simulated)", "landlord")
         await activity(a["landlord_id"], f"Paid {first(h['name'])} {money(amt)} — ticket closed", t["id"], "landlord")
-        await tell_handyman(t, f"Paid: {money(amt)} for the {t['title'].lower()} (simulated). Thanks for the great work!", cards=[{"type": "receipt", "ticket_id": t["id"]}])
-        await tell_tenant(t, f"All done — the {t['title'].lower()} is fixed and paid. Thanks for your patience.", cards=[{"type": "receipt", "ticket_id": t["id"]}])
+        await tell_handyman(t, f"Paid: {money(amt)} for the {t['title'].lower()} (simulated). Thanks for the great work!", cards=[{"type": "repair", "ref_id": t["id"]}])
+        await tell_tenant(t, f"All done — the {t['title'].lower()} is fixed and paid. Thanks for your patience.", cards=[{"type": "repair", "ref_id": t["id"]}])
     elif k == "self_fix_limit":
         t = await transition(t["id"], "self_fix_limit_pending", "self_fix_approved", {"approved_amount": amt, "self_fix_approved_at": iso()})
         diy = next((v for kk, v in DIY_SAFE.items() if kk in (t["title"] + " " + t["description"]).lower()), "")
         await timeline(t["id"], f"Owner approved self-fix up to {money(amt)}", "landlord")
         await activity(a["landlord_id"], f"Self-fix approved up to {money(amt)}", t["id"], "landlord")
-        await tell_tenant(t, f"You're approved for up to {money(amt)}. Keep the receipt. When it's fixed, send the receipt and an after photo here or in Tickets." + (f" Quick tip: {diy}" if diy else ""),
+        await tell_tenant(t, f"OK'd up to {money(amt)}. Send the receipt and a photo when it's fixed." + (f" Quick tip: {diy}" if diy else ""),
                           cards=[{"type": "receipt_request", "ticket_id": t["id"]}])
     elif k == "reimbursement":
         limit = float(a.get("limit") or amt)
@@ -413,7 +413,7 @@ async def apply_decline(a):
         await transition(t["id"], "payment_pending_approval", "needs_landlord")
         await activity(a["landlord_id"], "Payment held — marked as a dispute", t["id"], "landlord")
     elif k == "quote_overage" and t:
-        await tell_handyman(t, f"The owner is keeping the approved {money(t.get('approved_amount'))}. Thanks for understanding.")
+        await tell_handyman(t, f"The owner is keeping the OK'd {money(t.get('approved_amount'))}. Thanks.")
 
 
 # ---------- scheduler ----------
@@ -435,7 +435,7 @@ async def tick():
             print("expire fail", e)
     async for t in db.tickets.find({"status": "awaiting_tenant_time", "picked_slot": None, "proposed_at": {"$lt": cut(14400)}, "nudged.time": {"$ne": True}}, NF):
         await db.tickets.update_one({"id": t["id"]}, {"$set": {"nudged.time": True}})
-        await tell_tenant(t, "Quick reminder — please pick a time for the visit so I can lock it in.", cards=[{"type": "slots", "ticket_id": t["id"]}])
+        await tell_tenant(t, "Quick reminder — please pick a time for the visit so I can lock it in.", cards=[{"type": "choice_time", "ref_id": t["id"]}])
         await activity(t["landlord_id"], "Nudged the tenant to pick a time", t["id"])
     async for t in db.tickets.find({"status": "booked", "scheduled_for": {"$lt": iso(now() - timedelta(seconds=int(S * 1.5) if S else 10800))}, "nudged.status": {"$ne": True}}, NF):
         await db.tickets.update_one({"id": t["id"]}, {"$set": {"nudged.status": True}})

@@ -3,8 +3,9 @@ import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { api, money } from "@/src/api";
 import { useLive } from "@/src/useLive";
-import { Avatar, BigButton, Card, Divider, LargeHeader, Row, Screen, Section, Skeleton, StatusPill, Txt, useToast, TextButton } from "@/src/ui";
-import { statusLabel, statusTone } from "@/src/ui";
+import { Avatar, BigButton, Card, Divider, LargeHeader, Row, Screen, Section, Skeleton, Txt, useToast, TextButton } from "@/src/ui";
+import { Status } from "@/src/visual";
+import { statusOf } from "@/src/status";
 import { spacing } from "@/src/theme";
 
 export default function HandymanDetail() {
@@ -26,7 +27,7 @@ export default function HandymanDetail() {
         </Row>
         <Txt v="caption" style={{ marginTop: spacing.md }}>You&apos;ve paid</Txt>
         <Txt v="money" testID="handyman-paid-total">{money(h.paid_total)}</Txt>
-        {h.on_my_list ? <StatusPill label="On your list" tone="success" /> : <BigButton testID="handyman-add-button" label="Add to my list" onPress={async () => { await api(`/handymen/${id}/add`, { method: "POST" }); toast("Added"); reload(); }} />}
+        {h.on_my_list ? <Status size="sm" kind="good" label="On your list" /> : <BigButton testID="handyman-add-button" label="Add to my list" onPress={async () => { await api(`/handymen/${id}/add`, { method: "POST" }); toast("Added"); reload(); }} />}
         {h.on_my_list ? <TextButton testID="handyman-remove-button" label="Remove from my list" onPress={async () => { await api(`/handymen/${id}`, { method: "DELETE" }); reload(); }} /> : null}
       </Card>
       <Section title="Jobs for you" testID="handyman-jobs-section">
@@ -35,7 +36,7 @@ export default function HandymanDetail() {
             <View key={j.id}>{i ? <Divider /> : null}
               <Row style={{ justifyContent: "space-between" }}>
                 <View style={{ flex: 1 }}><Txt v="body" onPress={() => router.push(`/ticket/${j.id}`)}>{j.title}</Txt><Txt v="small">{j.date.slice(0, 10)}{j.rating ? ` · ${j.rating}★` : ""}</Txt></View>
-                {j.paid ? <Txt v="label">{money(j.paid)}</Txt> : <StatusPill label={statusLabel(j)} tone={statusTone(j)} />}
+                {j.paid ? <Txt v="label">{money(j.paid)}</Txt> : <Status size="sm" {...statusOf(j, "landlord")} />}
               </Row>
             </View>
           )) : <Txt v="small">No jobs together yet.</Txt>}

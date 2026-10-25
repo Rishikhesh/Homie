@@ -1,0 +1,59 @@
+{
+  "summary": "Visual-language UX pass tested end-to-end at 390px on the public URL for tenant, landlord and handyman. Backend: tests/test_status_kinds.py + tests/test_visual_cards.py pass 9/9; the new public-URL suite tests/test_iter13_visual_api.py passes 9/9 (repair card 200 for Tom / 403 for tenant2, money grid has 6 periods, rent/law cards, 401 without auth). These flows work: tenant Home tiles (rent BigNumber not clipped, status, pay, repairs tracker, Moving in tracker, utilities, insurance), the 'Repairs' tab label, Payments (BigNumber, Rent history with Status and receipts), lease screen (Read→Sign→Done, 6 icon rows, full-text toggle), and chat. In chat, 'My dryer stopped working' got one clarifying question and then a short reply with a live repair card. More toggles, rent card, law card and the confirm-fixed YesNo all work, and the speaker (voice/tts 200) and hands-free toggle still work. Also working: the handyman OfferCard → /ticket → accept sheet (number pad, accept-time-0, submit), tenant ticket-slot-0 pick with success burst, ticket-confirm-yes → Fixed + rating stars, landlord 'Need your OK' banner → MoneyCard → confirm → success burst → card removed → green all-good card, Money rent grid + grid-detail + Tax summary link, Homes/Repairs tabs, move-in capture area tiles and the statement-refund BigNumber. I fixed one blocker: /visual-qa always redirected to the role home. After the fix, qa-fixture-result shows 'All 68 statuses map' and text 1.6× has no crash, but the Dark toggle does nothing on web. Open issues: the doc card fails when the agent sends no ref_id, slot times are shown in the device timezone, and the handyman Booked card shows a green status for 'Waiting on tenant'. No red screens; the only console errors were 404s caused by statement test data I seeded myself (not app bugs).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "agent show_card type=doc (agent.py:216-231 / cards.py:75-89)", "issue": "When the agent attaches a doc card without ref_id (it does not know the lease id), resolve_card('doc', None) → 403 and the agent replies 'I couldn't open the lease file just now.' with no card. Reproduce: tenant chat 'Can I see my lease?'. GET /api/cards/doc/- → 403 for test-tenant-token. Fix: when doc has no ref, default to the caller's signed lease (as rent does with the unit), or put the lease id into the agent context."},
+      {"endpoint": "GET /api/statements/{sid} (inspections.py:631)", "issue": "stmt_view crashes with 500 (AttributeError on mo.get) if move_out_id points to a missing inspection. Found only with seeded data; consider a guard."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Visual QA dark toggle", "issue": "qa-dark does nothing on web: setColorScheme calls Appearance.setColorScheme, which react-native-web does not implement, so the 'Light' chip stays selected and the colors stay light. Keep a theme override in app state (context/zustand) instead. Reference: src/theme.ts:118-120, app/visual-qa.tsx:43-44", "testID": "qa-dark", "priority": "MEDIUM"},
+      {"component": "Slot time display (timezone)", "issue": "Visit times are shown in the device timezone, but the server stores and labels them in the property timezone. The handyman picked 'Mon, Oct 26 · 10 am' (sent as wall time and stored as 17:00Z with label 'Mon 10 am'). The tenant ticket, the status pill ('Picked Tomorrow 5 pm'), the landlord Repairs list ('Booked Tomorrow 5 pm') and the tenant home all show 5 pm. On the same screen the timeline says 'Visit booked for Mon 10 am'. Anyone whose device is not in the property's timezone sees the wrong time. Fix: format with Intl timeZone = property tz (or use the server label) in when()/fmtSlot. Reference: src/status.ts:16-29, src/visual.tsx:127, app/ticket/[id].tsx:38-41", "testID": "ticket-status-pill / ticket-slot-0", "priority": "HIGH"},
+      {"component": "Handyman BookedCard status", "issue": "Statuses other than 'booked' show kind 'good' (green ✓) with the label 'Waiting on tenant'. Waiting must be amber, and the card should use statusOf(t,'handyman'). Reference: app/(handyman)/index.tsx:37", "testID": "ticket-status-<id>", "priority": "MEDIUM"},
+      {"component": "DocTile", "issue": "The DocTile row itself (testID lease-view-button) cannot be tapped. Only the 48px eye icon (lease-view-button-view) opens the lease. Older users will tap the name or the row. Make the whole tile a Pressable. Reference: src/visual.tsx:246-260", "testID": "lease-view-button", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Chat → doc card", "issue": "'Can I see my lease?' gives no card-doc and the reply is 'couldn't open the lease file' (see backend minor #1)", "affected_testIDs": ["card-doc"]}
+    ],
+    "design_issues": [
+      {"screen": "Tracker (chat repair card, ticket detail, Visual QA at 1.6×)", "issues": ["At 390px the step labels are cut off: 'Handym…' at 1×; at 1.6× 'Rep…', 'Han…', 'Boo…', 'Co…', 'Insu…'. Use shorter labels, let them wrap to 2 lines, or show only the current label."]},
+      {"screen": "Chat repair card / PersonChip", "issues": ["A dryer repair shows Hank's first trade 'Plumbing' with a water-drop icon. Show the job's trade instead (cards.py:40 uses h.trades[0])."]},
+      {"screen": "Agent copy", "issues": ["'Hank says the dryer won't turn on is fixed.' The ticket title is dropped into the sentence and reads badly."]},
+      {"screen": "Statement", "issues": ["'Refund due 2026-11-22' shows an ISO date (spec: never ISO; use when()). 'Checked 0 views · 0 looked at closely' is jargon."]},
+      {"screen": "Lease", "issues": ["The Utilities row is cut off ('…paid by tenants' → 'pai…'). The Pets and Utilities rows hold full sentences instead of 1-3 words."]},
+      {"screen": "Landlord Money rent grid", "issues": ["Grid cells are about 36px wide, below the 44px touch target."]},
+      {"screen": "Inspection capture", "issues": ["The 'Living ro…' tile label is cut off. Living room uses the bed icon (same as Bedroom). Windows, Floors and Appliances fall back to the house icon."]},
+      {"screen": "Success burst", "issues": ["The burst caption ('OK') is about 10px. Make it larger for older users."]},
+      {"screen": "Tenant Home Moving-in rows", "issues": ["The Lease row 'Done' status sits higher than the label (not vertically centred)."]},
+      {"screen": "Landlord tabs", "issues": ["The tab says 'Properties' but the screen title and home section say 'Homes'. Use one word."]}
+    ],
+    "react_native_issues": [
+      {"component": "Appearance.setColorScheme on web", "issue": "Not supported by react-native-web, so the in-app dark/light override is a no-op in the web preview. Reference: src/theme.ts:119"}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter13_visual_api.py", "/app/backend/tests/test_status_kinds.py", "/app/backend/tests/test_visual_cards.py", "/app/test_reports/pytest/iter13_api.xml", "/app/test_reports/pytest/iter13_visual.xml"],
+  "action_items": [
+    "HIGH: Show slot/visit times in the property timezone everywhere (when(), fmtSlot, TimeChoice, status labels) so they match the server labels and the timeline.",
+    "Doc card: default ref to the caller's lease when the agent omits ref_id (cards.py doc branch), or give the agent the lease id.",
+    "Handyman BookedCard: use statusOf() — 'Waiting on tenant' must be amber, not green.",
+    "Make the whole DocTile tappable.",
+    "Visual QA dark toggle: keep the scheme override in app state so it works on web.",
+    "Tracker labels: stop cutting them off at 390px and at 1.6× text.",
+    "Statement: replace the ISO 'Refund due' date with a plain date.",
+    "Minor: job-trade icon on PersonChip, lease utilities row cut off, grid cell touch targets, burst caption size, 'Properties' vs 'Homes' naming."
+  ],
+  "critical_code_review_comments": [
+    "app/_layout.tsx SHARED did not include 'visual-qa', so Gate redirected every visit to the role home. Fixed by adding it.",
+    "app/(tenant)/index.tsx:102-118 reads ob.lease_signed / ob.insurance without optional chaining when !obDone; this crashes if onboarding is ever missing.",
+    "app/(handyman)/index.tsx:37 decides status kind inline instead of using statusOf, which breaks the single status-language rule."
+  ],
+  "updated_files": ["/app/frontend/app/_layout.tsx (added 'visual-qa' to SHARED routes)", "/app/backend/tests/test_iter13_visual_api.py (new)"],
+  "success_rate": {"backend": "100% (18/18 tests)", "frontend": "~88% (flows pass; dark toggle, doc card, timezone and status-color issues open)"},
+  "seed_data_creation": "Demo flow created Tom's ticket 'Dryer won't turn on' (5e1167f55f78472e). It went through: handyman accepted $150 → tenant picked a slot → landlord approved → marked fixed via API with an uploaded photo → tenant confirmed. It is now payment_pending_approval. A temporary statement and move-in inspection were seeded and then deleted.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use the tokens from /app/memory/test_credentials.md and set localStorage rw_session_token. The DB has 2 'Tom Chen' users (stale from resets), so look users up by sessions.token, not by name. The test browser runs in UTC while the property is America/Los_Angeles, which is what exposes the timezone bug. ConfirmSheet buttons use the testID `${sheetTestID}-confirm` (e.g. approval-confirm-<id>-confirm). DocTile opens via `${testID}-view`.",
+  "rca_of_issue": "Visual QA redirect: the Gate in _layout only allows SHARED segments for signed-in users and 'visual-qa' was missing. Timezone: presetSlots sends wall-clock time with no zone; the server reads it in the property tz (10am PT → 17:00Z, label 'Mon 10 am'); the client then formats the ISO in the device tz (5 pm UTC). Doc card: show_card doc passes ref=None → resolve_card finds no lease → _deny() 403."
+}

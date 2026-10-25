@@ -12,7 +12,7 @@ function RoleCard({ icon, title, body, onPress, testID, selected }: any) {
   const { colors } = useTheme();
   return (
     <Pressable testID={testID} onPress={onPress} style={({ pressed }) => ({ padding: spacing.lg, borderRadius: radius.lg, borderWidth: selected ? 2 : 0.5, borderColor: selected ? colors.brandPrimary : colors.border, backgroundColor: colors.surfaceSecondary, flexDirection: "row", gap: spacing.lg, alignItems: "center", opacity: pressed ? 0.85 : 1 })}>
-      <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brandSecondary, alignItems: "center", justifyContent: "center" }}><Ionicons name={icon} size={26} color={colors.onBrandSecondary} /></View>
+      <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.brandSecondary, alignItems: "center", justifyContent: "center" }}><Ionicons name={icon} size={20} color={colors.onBrandSecondary} /></View>
       <View style={{ flex: 1 }}><Txt v="h2">{title}</Txt><Txt v="body" color={colors.muted}>{body}</Txt></View>
     </Pressable>
   );
@@ -25,7 +25,7 @@ function Invites({ list, onAccepted }: { list: any[]; onAccepted: () => void }) 
     <View style={{ gap: spacing.md }}>
       {list.map((i) => (
         <Card key={i.id} agent testID={`invite-card-${i.id}`}>
-          <Txt v="label" style={{ fontSize: 17 }}>{i.text}</Txt>
+          <Txt v="label">{i.text}</Txt>
           <Txt v="small" style={{ marginBottom: spacing.md }}>{i.sub}</Txt>
           <BigButton testID={`invite-accept-${i.id}`} label="Accept" loading={busy === i.id} onPress={async () => { setBusy(i.id); try { await api(`/invites/${i.id}/accept`, { method: "POST" }); toast("You're in!"); onAccepted(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(null); } }} />
         </Card>

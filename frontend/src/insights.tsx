@@ -38,7 +38,7 @@ export function ReportInsights({ propertyId, year, onChanged }: { propertyId: st
     return (
       <Card agent testID="report-insights-cta" style={{ gap: spacing.sm, marginBottom: spacing.xl }}>
         <AgentMark />
-        <Txt v="label" style={{ fontSize: 17 }}>Find money you&apos;re missing</Txt>
+        <Txt v="label">Find money you&apos;re missing</Txt>
         <Txt v="small">Rentwise checks vacancies, late rent, missed deductions and repair spend.</Txt>
         {busy ? <Skeleton height={70} count={2} /> : <BigButton testID="report-check-button" icon="sparkles" label="Get insights" onPress={run} />}
       </Card>
@@ -50,9 +50,9 @@ export function ReportInsights({ propertyId, year, onChanged }: { propertyId: st
         <AgentMark />
         <Txt v="h2" style={{ marginTop: 4 }} testID="report-insights-headline">{data.headline}</Txt>
         <Row style={{ marginTop: spacing.sm, gap: spacing.xl }}>
-          {total ? <View><Txt v="caption">At risk</Txt><Txt v="money" style={{ fontSize: 22 }} color={colors.error}>{money(total)}</Txt></View> : null}
-          <View><Txt v="caption">Net</Txt><Txt v="money" style={{ fontSize: 22 }}>{money(data.net)}</Txt></View>
-          {data.margin != null ? <View><Txt v="caption">Margin</Txt><Txt v="money" style={{ fontSize: 22 }}>{data.margin}%</Txt></View> : null}
+          {total ? <View><Txt v="caption">At risk</Txt><Txt v="money" style={{ fontSize: 22, lineHeight: 30 }} color={colors.error}>{money(total)}</Txt></View> : null}
+          <View><Txt v="caption">Net</Txt><Txt v="money" style={{ fontSize: 22, lineHeight: 30 }}>{money(data.net)}</Txt></View>
+          {data.margin != null ? <View><Txt v="caption">Margin</Txt><Txt v="money" style={{ fontSize: 22, lineHeight: 30 }}>{data.margin}%</Txt></View> : null}
         </Row>
       </Card>
       {data.insights.map((i: any, k: number) => {

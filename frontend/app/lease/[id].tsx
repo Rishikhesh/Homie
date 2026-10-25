@@ -5,8 +5,9 @@ import { api, money } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { openPdf } from "@/src/cards";
-import { BigButton, Card, Field, LargeHeader, Screen, Section, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
+import { BigButton, Card, Field, LargeHeader, Screen, Skeleton, TextButton, Txt, useToast } from "@/src/ui";
 import { spacing, useTheme } from "@/src/theme";
+import { IconRow, More, SIGN_STEPS, Status, Tracker, burst } from "@/src/visual";
 
 export default function LeaseView() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,24 +24,29 @@ export default function LeaseView() {
   const t = l.terms;
   return (
     <Screen testID="lease-screen">
-      <LargeHeader title="Lease" subtitle={l.source === "upload" ? "Signed lease (uploaded)" : l.status === "signed" ? "Fully signed" : l.status === "tenant_signed" ? "Tenant signed — waiting for owner" : "Waiting for tenant"} back={() => router.back()} />
-      <Card agent style={{ marginBottom: spacing.xl }} testID="lease-key-terms">
-        <Txt v="label">Key terms</Txt>
-        <Txt v="money">{money(t.rent)}<Txt v="body">/mo</Txt></Txt>
-        <Txt v="body">Due day {t.due_day} · Deposit {money(t.deposit)}{t.deposit_paid ? " (paid)" : ""}{t.late_fee != null ? ` · Late fee ${money(t.late_fee)}` : ""}</Txt>
-        <Txt v="body">{t.start} → {t.end}{t.notice_days != null ? ` · ${t.notice_days} days notice` : ""}</Txt>
-        <Txt v="body">Pets: {t.pets || "Ask first"}</Txt>
-        {l.summary ? <Txt v="small" style={{ marginTop: spacing.sm }}>{l.summary}</Txt> : null}
+      <LargeHeader title="Lease" back={() => router.back()} />
+      <Card style={{ marginBottom: spacing.xl, gap: spacing.md }} testID="lease-key-terms">
+        <Tracker steps={SIGN_STEPS} current={l.status === "signed" ? 3 : 1} mine={canSign} />
+        <Status kind={l.status === "signed" ? "good" : canSign ? "you" : "waiting"} label={l.status === "signed" ? "Signed" : canSign ? "Your turn to sign" : isTenant ? "Waiting for owner" : "Waiting for tenant"} />
+        <IconRow icon="cash" label="Rent" value={money(t.rent)} />
+        <IconRow icon="calendar" label="Due day" value={String(t.due_day)} />
+        <IconRow icon="lock-closed" label={t.deposit_paid ? "Deposit (paid)" : "Deposit"} value={money(t.deposit)} />
+        <IconRow icon="paw" label={`Pets: ${t.pets || "ask first"}`} />
+        <IconRow icon="flash" label={`Utilities: ${t.utilities || "see lease"}`} />
+        <IconRow icon="calendar-number" label="Ends" value={t.end ? new Date(`${t.end}T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—"} />
       </Card>
-      <Section title="Full text">
-        <Card>{(l.chunks || []).map((c: string, i: number) => <Txt key={i} v="body" style={{ marginBottom: spacing.md }}>{c}</Txt>)}</Card>
-      </Section>
-      {l.signatures.map((s: any, i: number) => <StatusPill key={i} label={`${s.role === "tenant" ? "Tenant" : "Owner"}: ${s.typed_name} · ${s.signed_at.slice(0, 10)}`} tone="success" />)}
+      <Card style={{ marginBottom: spacing.lg }}>
+        <More label="Read full lease" testID="lease-full-toggle">
+          {l.summary ? <Txt v="small">{l.summary}</Txt> : null}
+          {(l.chunks || []).map((c: string, i: number) => <Txt key={i} v="body" style={{ marginBottom: spacing.md }}>{c}</Txt>)}
+        </More>
+      </Card>
+      {l.signatures.map((s: any, i: number) => <Status key={i} size="sm" kind="good" label={`${s.role === "tenant" ? "Tenant" : "Owner"}: ${s.typed_name}`} />)}
       {canSign ? (
         <View style={{ gap: spacing.md, marginTop: spacing.xl }}>
           <Field testID="lease-sign-name" label="Type your full name to sign" value={name} onChangeText={setName} autoCapitalize="words" />
-          <BigButton testID="lease-sign-button" label="Sign" loading={busy} disabled={name.trim().length < 3} onPress={async () => { setBusy(true); try { await api(`/leases/${id}/sign`, { body: { typed_name: name } }); toast("Signed"); reload(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); } }} />
-          <Txt v="small">Simulated e-signature. Your typed name, the time and a document fingerprint are recorded.</Txt>
+          <BigButton testID="lease-sign-button" label="Sign" loading={busy} disabled={name.trim().length < 3} onPress={async () => { setBusy(true); try { await api(`/leases/${id}/sign`, { body: { typed_name: name } }); burst("Signed"); reload(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); } }} />
+          <Txt v="small">Simulated e-signature.</Txt>
         </View>
       ) : null}
       {l.status === "signed" ? <TextButton testID="lease-pdf-button" icon="document-text-outline" label={l.source === "upload" ? "Original PDF" : "Signed PDF"} onPress={() => openPdf(`/leases/${id}/pdf`)} /> : null}

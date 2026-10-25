@@ -1,14 +1,51 @@
 import React, { useState } from "react";
-import { RefreshControl, View } from "react-native";
+import { Pressable, RefreshControl, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { api, money, ago } from "@/src/api";
 import { useLive } from "@/src/useLive";
-import { BigButton, Card, Chip, ChipRow, ConfirmSheet, Divider, EmptyState, ErrorState, Field, LargeHeader, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
-import { spacing, useTheme } from "@/src/theme";
+import { BigButton, Card, Ionicons, Chip, ChipRow, ConfirmSheet, Divider, EmptyState, ErrorState, Field, LargeHeader, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
+import { radius, spacing, useTheme } from "@/src/theme";
+import { BigNumber, IconRow, Status } from "@/src/visual";
+import { KIND_ICON, kindColor, statusOf } from "@/src/status";
+
+const CAT_ICON: any = { Repairs: "construct", Insurance: "shield-checkmark", Taxes: "business", "Mortgage interest": "home", Utilities: "flash", "Cleaning and maintenance": "sparkles", Supplies: "cart", Other: "ellipsis-horizontal" };
+
+function RentGrid() {
+  const { colors } = useTheme();
+  const { data: g } = useLive<any>(() => api("/money/grid"), 15000);
+  const [cell, setCell] = useState<any>(null);
+  if (!g?.rows?.length) return null;
+  return (
+    <Card testID="rent-grid" style={{ gap: spacing.sm }}>
+      <Row style={{ gap: 4 }}>
+        <View style={{ width: 92 }} />
+        {g.periods.map((p: any) => <Txt key={p.period} v="caption" style={{ flex: 1, textAlign: "center" }}>{p.label}</Txt>)}
+      </Row>
+      {g.rows.map((r: any) => (
+        <Row key={r.unit_id} style={{ gap: 4 }}>
+          <View style={{ width: 92 }}><Txt v="label" numberOfLines={1}>{r.label.replace("Whole home", "Home")}</Txt><Txt v="small" numberOfLines={1}>{r.tenant || "Empty"}</Txt></View>
+          {r.cells.map((c: any) => {
+            const st = statusOf({ ...c, due_day: r.due_day }, "landlord", "rent");
+            return (
+              <Pressable key={c.period} testID={`grid-${r.unit_id}-${c.period}`} accessibilityLabel={`${r.label} ${c.period}: ${st.label}`} onPress={() => setCell({ ...c, st, r })}
+                style={{ flex: 1, height: 44, alignItems: "center", justifyContent: "center", borderRadius: radius.sm, backgroundColor: cell?.period === c.period && cell?.r.unit_id === r.unit_id ? colors.surfaceTertiary : "transparent" }}>
+                <Ionicons name={KIND_ICON[st.kind] as any} size={22} color={kindColor(colors, st.kind)} />
+              </Pressable>
+            );
+          })}
+        </Row>
+      ))}
+      {cell ? <View testID="grid-detail" style={{ padding: spacing.md, borderRadius: radius.md, backgroundColor: colors.surfaceTertiary, gap: 4 }}>
+        <Txt v="label">{cell.r.label} · {g.periods.find((p: any) => p.period === cell.period)?.label}</Txt>
+        <Status kind={cell.st.kind} label={cell.st.label} size="sm" />
+        {cell.due ? <Txt v="body">{money(cell.paid)} of {money(cell.due)}</Txt> : null}
+      </View> : null}
+    </Card>
+  );
+}
 
 const CATS = ["Insurance", "Taxes", "Mortgage interest", "Utilities", "Cleaning and maintenance", "Supplies", "Other"];
-const TONE: any = { paid: "success", due: "warning", overdue: "error", upcoming: "neutral" };
 
 export default function Money() {
   const router = useRouter();
@@ -42,17 +79,22 @@ export default function Money() {
   const rooms = (d?.properties || []).flatMap((p: any) => p.units.filter((u: any) => u.tenant_name).map((u: any) => ({ ...u, pname: p.property.name })));
   return (
     <Screen tab testID="money-screen" refresh={<RefreshControl refreshing={false} onRefresh={reload} />}>
-      <LargeHeader title="Money" subtitle={d ? `${d.month} · ${money(d.collected)} collected` : undefined}
+      <LargeHeader title="Money"
         actions={[{ label: "Record cash", icon: "cash-outline", onPress: () => setSheet("cash"), testID: "record-cash-button" }]} />
       {ov.error ? <ErrorState message={ov.error} onRetry={reload} /> : null}
       {!d ? <Skeleton /> : (
         <>
+          <Card style={{ flexDirection: "row", gap: spacing.lg, marginBottom: spacing.xl }}>
+            <View style={{ flex: 1 }}><BigNumber value={d.collected} sign={d.collected ? "in" : undefined} caption={`Collected · ${d.month}`} small /></View>
+            <View style={{ flex: 1 }}><BigNumber value={d.overdue} color={d.overdue ? colors.you : colors.none} caption="Late" small /></View>
+          </Card>
+          <Section title="Rent history" testID="rent-grid-section"><RentGrid /></Section>
           <Section title="This month" testID="money-month-section">
             {d.properties.map((p: any, i: number) => (
               <Card key={p.property.id} index={i} testID={`money-property-${p.property.id}`}>
                 <Row style={{ justifyContent: "space-between" }}>
-                  <Txt v="label" style={{ fontSize: 17 }}>{p.property.name}</Txt>
-                  <TextButton testID={`year-report-${p.property.id}`} label="Year-end report ›" onPress={() => router.push(`/report/${p.property.id}`)} />
+                  <Txt v="label">{p.property.name}</Txt>
+                  <TextButton testID={`year-report-${p.property.id}`} label={`Tax summary ${new Date().getFullYear()} ›`} onPress={() => router.push(`/report/${p.property.id}`)} />
                 </Row>
                 {p.units.map((u: any) => (
                   <View key={u.unit.id}>
@@ -62,18 +104,18 @@ export default function Money() {
                         <Txt v="body">{u.unit.label} · {u.tenant_name || "Vacant"}</Txt>
                         {u.month ? <Txt v="small">{money(u.month.paid)} of {money(u.month.due)}{u.overdue ? ` · ${money(u.overdue)} overdue` : ""}</Txt> : null}
                       </View>
-                      {u.month ? <StatusPill testID={`rent-status-${u.unit.id}`} label={u.month.status === "paid" ? "Paid" : u.overdue ? "Overdue" : "Due"} tone={u.overdue ? "error" : TONE[u.month.status]} /> : null}
+                      {u.month ? <Status size="sm" testID={`rent-status-${u.unit.id}`} {...statusOf({ ...u.month, status: u.overdue ? "overdue" : u.month.status, due_day: u.unit.due_day }, "landlord", "rent")} /> : null}
                     </Row>
                   </View>
                 ))}
               </Card>
             ))}
-            {!d.properties.length ? <EmptyState testID="money-empty" title="No rent yet" body="Add a property and invite tenants to start tracking rent." /> : null}
+            {!d.properties.length ? <EmptyState testID="money-empty" icon="leaf-outline" title="No rent yet" /> : null}
           </Section>
 
           <Section title="Bank feed" testID="bank-section" right={<StatusPill label={plaid.data?.items?.length ? "Plaid Sandbox" : "Simulated"} tone={plaid.data?.items?.length ? "brand" : "neutral"} />}>
             {!bank.data?.connected ? (
-              <EmptyState testID="bank-connect-empty" icon="card-outline" title="Connect your bank" body="Rentwise matches rent deposits to tenants automatically." action="Connect bank" onAction={() => setSheet("connect")} />
+              <EmptyState testID="bank-connect-empty" icon="card-outline" title="Connect your bank" action="Connect bank" onAction={() => setSheet("connect")} />
             ) : (
               <>
                 <Txt v="small">Connected ({bank.data.bank_name}){plaid.data?.items?.[0]?.last_sync ? ` · synced ${ago(plaid.data.items[0].last_sync)}` : ""}</Txt>
@@ -119,13 +161,12 @@ export default function Money() {
                 {d.expenses.slice(0, 15).map((e: any, i: number) => (
                   <View key={e.id}>{i ? <Divider /> : null}
                     <Row style={{ justifyContent: "space-between" }}>
-                      <View style={{ flex: 1 }}><Txt v="body">{e.description || e.category}</Txt><Txt v="small">{e.category} · {e.date.slice(0, 10)}</Txt></View>
-                      <Txt v="label">{money(e.amount)}</Txt>
+                      <View style={{ flex: 1 }}><IconRow icon={CAT_ICON[e.category] || "receipt"} label={e.description || e.category} value={money(e.amount)} /></View>
                     </Row>
                   </View>
                 ))}
               </Card>
-            ) : <EmptyState testID="expenses-empty" title="No expenses yet" body="Repairs paid through Rentwise land here automatically. Add insurance, taxes and more yourself." />}
+            ) : <EmptyState testID="expenses-empty" icon="leaf-outline" title="No expenses yet" />}
           </Section>
         </>
       )}

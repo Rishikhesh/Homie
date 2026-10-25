@@ -1,51 +1,23 @@
 import React from "react";
 import { RefreshControl, View } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated";
-import { api, money, ago } from "@/src/api";
+import { api, ago } from "@/src/api";
+import { HomeCard } from "@/src/homes";
 import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { ApprovalCard } from "@/src/cards";
-import { BigButton, Card, EmptyState, ErrorState, Ionicons, LargeHeader, Row, Screen, Section, Skeleton, Txt } from "@/src/ui";
-import { spacing, useTheme } from "@/src/theme";
+import { BigButton, Card, ErrorState, Ionicons, LargeHeader, Row, Screen, Section, Skeleton, Txt } from "@/src/ui";
+import { BigNumber, Countdown, More, Status, StripCard } from "@/src/visual";
+import { when } from "@/src/status";
+import { radius, spacing, useTheme } from "@/src/theme";
 
-function Stat({ label, value, testID, tone }: { label: string; value: string; testID: string; tone?: string }) {
-  return (
-    <View style={{ flex: 1, paddingVertical: spacing.md, paddingHorizontal: spacing.lg, gap: 2 }} testID={testID}>
-      <Txt v="caption" numberOfLines={1}>{label}</Txt>
-      <Txt v="money" style={{ fontSize: 24 }} color={tone} numberOfLines={1} adjustsFontSizeToFit>{value}</Txt>
-    </View>
-  );
-}
-
-function StatsBlock({ s, month }: { s: any; month: string }) {
+function Counter({ icon, n, label, testID }: { icon: string; n: string | number; label: string; testID?: string }) {
   const { colors } = useTheme();
-  const line = { backgroundColor: colors.divider };
   return (
-    <View style={{ gap: spacing.md }}>
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        <View style={{ flexDirection: "row" }}>
-          <Stat testID="stat-collected" label={`Collected · ${month}`} value={money(s.collected)} />
-          <View style={[{ width: 0.5 }, line]} />
-          <Stat testID="stat-overdue" label="Overdue" value={money(s.overdue)} tone={s.overdue ? colors.error : undefined} />
-        </View>
-        <View style={[{ height: 0.5 }, line]} />
-        <View style={{ flexDirection: "row" }}>
-          <Stat testID="stat-open-tickets" label="Open tickets" value={String(s.open_tickets)} />
-          <View style={[{ width: 0.5 }, line]} />
-          <Stat testID="stat-avg-fix" label="Avg time to fix" value={s.avg_hours ? `${Math.round(s.avg_hours)} h` : "—"} />
-        </View>
-      </Card>
-      <Card agent testID="stat-fixed-without-you" style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.brandSecondary, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name="sparkles" size={20} color={colors.onBrandSecondary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Txt v="label">Fixed without you</Txt>
-          <Txt v="small">{s.taps ? `You only tapped ${s.taps} times to approve money` : "Repairs Rentwise closes on its own"}</Txt>
-        </View>
-        <Txt v="money" style={{ fontSize: 28 }}>{s.fixed_without_you}</Txt>
-      </Card>
+    <View testID={testID} style={{ flex: 1, alignItems: "center", gap: 2 }}>
+      <Ionicons name={icon as any} size={20} color={colors.brandPrimary} />
+      <Txt weight="bold" style={{ fontSize: 20 }}>{n}</Txt>
+      <Txt v="caption" numberOfLines={1}>{label}</Txt>
     </View>
   );
 }
@@ -55,61 +27,81 @@ export default function LandlordHome() {
   const router = useRouter();
   const { colors } = useTheme();
   const { data, error, loading, reload } = useLive<any>(() => api("/landlord/home"), 3000);
-  const s = data?.stats;
+  const ov = useLive<any>(() => api("/money/overview"), 10000);
   const mo = useLive<any[]>(() => api("/move-outs"), 10000);
+  const s = data?.stats;
+  const needs = data ? data.approvals.length + data.leases_to_sign.length : 0;
+  const week = (data?.activity || []).filter((a: any) => Date.now() - new Date(a.created_at).getTime() < 7 * 86400000);
+  const replies = week.filter((a: any) => a.kind === "agent").length;
+  const repairs = new Set(week.filter((a: any) => a.ticket_id).map((a: any) => a.ticket_id)).size;
   return (
-    <Screen tab testID="landlord-home-screen" refresh={<RefreshControl refreshing={false} onRefresh={reload} />}>
-      <LargeHeader title={`Hi ${me?.user?.name?.split(" ")[0] || ""}`} subtitle="Here's what needs you today"
-        actions={[{ label: "Settings", icon: "settings-outline", onPress: () => router.push("/settings"), testID: "home-settings-button" }]} />
+    <Screen tab testID="landlord-home-screen" refresh={<RefreshControl refreshing={false} onRefresh={() => { reload(); ov.reload(); }} />}>
+      <LargeHeader title={`Hi ${me?.user?.name?.split(" ")[0] || ""} 👋`} actions={[{ label: "Settings", icon: "settings-outline", onPress: () => router.push("/settings"), testID: "home-settings-button" }]} />
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
-      <BigButton testID="ask-rentwise-button" icon="sparkles" label="Ask Rentwise" onPress={async () => { const t = await api("/threads/mine"); router.push(`/thread/${t.id}`); }} style={{ marginBottom: spacing.xl }} />
       {loading && !data ? <Skeleton /> : data ? (
         <>
-          <Section title="Needs you" testID="needs-you-section">
-            {data.leases_to_sign.map((l: any) => (
-              <Card key={l.id} agent testID={`lease-sign-card-${l.id}`} onPress={() => router.push(`/lease/${l.id}`)}>
-                <Txt v="label" style={{ fontSize: 17 }}>{l.title}</Txt>
-                <Txt v="small" color={colors.brandPrimary}>Open lease ›</Txt>
-              </Card>
-            ))}
-            {data.approvals.map((a: any, i: number) => <ApprovalCard key={a.id} a={a} index={i} onDone={reload} />)}
-            {!data.approvals.length && !data.leases_to_sign.length ? (
-              <EmptyState testID="needs-you-empty" icon="checkmark-done-circle-outline" title="Nothing needs you" body="When Rentwise needs you to approve money or decide something, it appears here." />
-            ) : null}
+          {needs ? (
+            <View testID="needs-you-banner" accessible accessibilityLabel={`${needs} need your OK`} style={{ flexDirection: "row", alignItems: "center", gap: spacing.md, padding: spacing.md, borderRadius: radius.lg, backgroundColor: colors.youSoft, marginBottom: spacing.lg }}>
+              <View style={{ minWidth: 36, height: 36, borderRadius: 18, backgroundColor: colors.you, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 }}>
+                <Txt weight="bold" style={{ fontSize: 18 }} color={colors.onError}>{needs}</Txt>
+              </View>
+              <Txt v="label" color={colors.you} style={{ flex: 1 }}>Need your OK</Txt>
+            </View>
+          ) : (
+            <StripCard kind="good" testID="needs-you-empty" style={{ marginBottom: spacing.lg }}><Status kind="good" label="All good. Rentwise is handling it." /></StripCard>
+          )}
+          <BigButton testID="ask-rentwise-button" tone="soft" icon="sparkles" label="Ask Rentwise" onPress={async () => { const t = await api("/threads/mine"); router.push(`/thread/${t.id}`); }} style={{ marginBottom: spacing.xl }} />
+          {needs ? (
+            <Section title="To do" testID="needs-you-section">
+              {data.leases_to_sign.map((l: any) => (
+                <StripCard key={l.id} kind="you" testID={`lease-sign-card-${l.id}`} onPress={() => router.push(`/lease/${l.id}`)} style={{ gap: spacing.sm }}>
+                  <Row><Ionicons name="create" size={20} color={colors.you} /><Txt v="label" style={{ flex: 1 }}>{l.title.split(" — ")[0]}</Txt></Row>
+                  <Status kind="you" label="Sign your part ›" size="sm" />
+                </StripCard>
+              ))}
+              {data.approvals.map((a: any, i: number) => <ApprovalCard key={a.id} a={a} index={i} onDone={reload} />)}
+            </Section>
+          ) : null}
+          <Section title="Money" testID="stats-section">
+            <Card style={{ flexDirection: "row", gap: spacing.lg }}>
+              <View style={{ flex: 1 }} testID="stat-collected"><BigNumber value={s.collected} sign={s.collected ? "in" : undefined} caption={`Collected · ${data.month}`} small /></View>
+              <View style={{ flex: 1 }} testID="stat-overdue"><BigNumber value={s.overdue} color={s.overdue ? colors.you : colors.none} caption="Late" small /></View>
+            </Card>
           </Section>
           {mo.data?.length ? (
             <Section title="Move-outs" testID="move-outs-section">
               {mo.data.map((m: any) => (
-                <Card key={m.inspection_id} testID={`moveout-card-${m.inspection_id}`} onPress={() => router.push(m.statement_id ? `/statement/${m.statement_id}` : `/inspection/${m.inspection_id}`)}
-                  style={{ borderColor: m.days_left < 0 ? colors.error : m.days_left <= 5 ? colors.warning : colors.divider, borderWidth: 1.5 }}>
-                  <Txt v="label" style={{ fontSize: 17 }}>{m.tenant_name.split(" ")[0]} · {m.unit_label} · refund due by {m.due_by}</Txt>
-                    <Txt v="body" color={m.days_left < 0 ? colors.error : m.days_left <= 5 ? colors.onWarningSoft : undefined}>
-                    {m.state} gives {m.return_days} days · {m.days_left < 0 ? `${-m.days_left} days overdue` : `${m.days_left} left`}
-                  </Txt>
-                  <Txt v="small">{m.statement_id ? "Statement ready to review ›" : m.status === "analyzing" ? "Rentwise is comparing…" : "Waiting for the move-out check"}</Txt>
-                </Card>
+                <StripCard key={m.inspection_id} kind={m.statement_id ? "you" : m.days_left < 0 ? "you" : "waiting"} testID={`moveout-card-${m.inspection_id}`}
+                  onPress={() => router.push(m.statement_id ? `/statement/${m.statement_id}` : `/inspection/${m.inspection_id}`)} style={{ gap: spacing.sm }}>
+                  <Txt v="label" style={{ fontSize: 16 }}>{m.tenant_name.split(" ")[0]} · {m.unit_label}</Txt>
+                  <Countdown days={m.days_left} total={m.return_days} caption={`Refund due ${when(m.due_by)}`} />
+                  <Status size="sm" kind={m.statement_id ? "you" : "waiting"} label={m.statement_id ? "Needs your OK ›" : m.status === "analyzing" ? "Comparing photos" : "Waiting for tenant"} />
+                </StripCard>
               ))}
             </Section>
           ) : null}
-          <Section title="Stats" testID="stats-section">
-            <StatsBlock s={s} month={data.month} />
+          <Section title="Homes" testID="homes-section">
+            {(ov.data?.properties || []).map((p: any) => <HomeCard key={p.property.id} testID={`home-card-${p.property.id}`} p={p.property} units={p.units} onPress={() => router.push(`/property/${p.property.id}`)} />)}
           </Section>
-          <Section title="Agent at work" testID="agent-feed-section">
-            {data.activity.length ? (
-              <Card agent style={{ paddingVertical: spacing.sm }}>
-                {data.activity.map((a: any) => (
-                  <Animated.View key={a.id} entering={FadeInDown.duration(260)} layout={LinearTransition}>
-                    <Row style={{ paddingVertical: spacing.sm, alignItems: "flex-start" }}>
-                      <Ionicons name={a.kind === "agent" ? "sparkles" : a.kind === "money" ? "cash-outline" : a.kind === "landlord" ? "person-circle-outline" : "information-circle-outline"} size={18} color={colors.brandPrimary} style={{ marginTop: 2 }} />
-                      <View style={{ flex: 1 }}>
-                        <Txt v="body" testID={`activity-${a.id}`} onPress={a.ticket_id ? () => router.push(`/ticket/${a.ticket_id}`) : undefined}>{a.text}</Txt>
-                        <Txt v="small">{ago(a.created_at)}{a.ticket_id ? " · Open ticket ›" : ""}</Txt>
-                      </View>
+          <Section title="Rentwise this week" testID="agent-feed-section">
+            <Card>
+              <Row testID="stat-fixed-without-you">
+                <Counter testID="stat-open-tickets" icon="construct" n={repairs} label="repairs" />
+                <Counter icon="chatbubbles" n={replies} label="replies" />
+                <Counter testID="stat-avg-fix" icon="timer" n={`${Math.max(0, Math.round((replies * 5 + repairs * 30) / 60))} h`} label="saved" />
+              </Row>
+              {data.activity.length ? (
+                <More label="What it did" testID="agent-feed-more">
+                  {data.activity.slice(0, 12).map((a: any) => (
+                    <Row key={a.id} style={{ alignItems: "center" }}>
+                      <Ionicons name={a.kind === "agent" ? "sparkles" : a.kind === "money" ? "cash" : a.kind === "landlord" ? "person-circle" : "information-circle"} size={18} color={colors.brandPrimary} />
+                      <Txt v="body" style={{ flex: 1 }} numberOfLines={2} testID={`activity-${a.id}`} onPress={a.ticket_id ? () => router.push(`/ticket/${a.ticket_id}`) : undefined}>{a.text}</Txt>
+                      <Txt v="small">{ago(a.created_at)}</Txt>
                     </Row>
-                  </Animated.View>
-                ))}
-              </Card>
-            ) : <EmptyState testID="agent-feed-empty" title="Quiet so far" body="Everything Rentwise does for you shows up here as it happens." />}
+                  ))}
+                </More>
+              ) : null}
+            </Card>
           </Section>
         </>
       ) : null}

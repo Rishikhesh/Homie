@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Linking, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "@/src/api";
@@ -8,7 +8,10 @@ import { useAuth } from "@/src/auth";
 import { uploadAsset } from "@/src/inputs";
 import { BigButton, Card, ErrorState, Field, Ionicons, LargeHeader, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
 import { Frame, Video } from "@/src/inspect";
-import { spacing, useTheme } from "@/src/theme";
+import { radius, spacing, useTheme } from "@/src/theme";
+
+
+const AREA_ICON = (l: string) => (/kitchen/i.test(l) ? "restaurant" : /bath/i.test(l) ? "water" : /bed|room/i.test(l) ? "bed" : /living/i.test(l) ? "tv" : /yard|garden|patio/i.test(l) ? "leaf" : /garage/i.test(l) ? "car" : "home");
 
 type Up = "uploading" | "done" | "error";
 
@@ -28,7 +31,7 @@ export default function InspectionScreen() {
     <Screen testID="inspection-record-screen">
       <LargeHeader title={title} subtitle={`${i.tenant_name} · ${i.unit_label} · ${i.locked_at ? `locked ${i.locked_at.slice(0, 10)}` : ({ analyzed: "compared", submitted: "sent", confirmed: "locked" } as any)[i.status] || i.status.replace("_", " ")}`} back={() => router.back()} />
       {i.error ? <Card><Txt v="body">The comparison didn&apos;t finish. The tenant can submit again.</Txt></Card> : null}
-      {i.statement_id && !isTenant ? <BigButton testID="open-statement-button" icon="document-text-outline" label="Review deposit statement" onPress={() => router.push(`/statement/${i.statement_id}`)} style={{ marginBottom: spacing.lg }} /> : null}
+      {i.statement_id && !isTenant ? <BigButton testID="open-statement-button" icon="document-text-outline" label="See move-out summary" onPress={() => router.push(`/statement/${i.statement_id}`)} style={{ marginBottom: spacing.lg }} /> : null}
       {i.areas.map((a: any) => (
         <Section key={a.key} title={a.label} testID={`record-area-${a.key}`}>
           <Card style={{ gap: spacing.sm }}>
@@ -101,17 +104,27 @@ function Capture({ i, reload, title }: { i: any; reload: () => void; title: stri
   return (
     <Screen testID="inspection-capture-screen">
       <LargeHeader title={title} subtitle={`${a.label} · ${idx + 1} of ${i.areas.length}`} back={() => (idx ? setIdx(idx - 1) : router.back())} />
-      <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surfaceTertiary, marginBottom: spacing.lg }}>
-        <View style={{ height: 6, borderRadius: 3, width: `${((idx + 1) / i.areas.length) * 100}%`, backgroundColor: colors.brandPrimary }} />
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.lg, flexGrow: 0 }} contentContainerStyle={{ gap: spacing.sm }}>
+        {i.areas.map((x: any, j: number) => {
+          const ok = has(x), cur = j === idx;
+          return (
+            <Pressable key={x.key} testID={`area-tile-${x.key}`} accessibilityLabel={`${x.label}${ok ? ", recorded" : ""}`} onPress={() => setIdx(j)}
+              style={{ width: 84, minHeight: 84, borderRadius: radius.md, alignItems: "center", justifyContent: "center", gap: 4, padding: 6, borderWidth: 2,
+                borderColor: cur ? colors.brandPrimary : ok ? colors.good : colors.border, backgroundColor: ok ? colors.goodSoft : colors.surfaceSecondary }}>
+              <Ionicons name={(ok ? "checkmark-circle" : AREA_ICON(x.label)) as any} size={28} color={ok ? colors.good : colors.brandPrimary} />
+              <Txt v="small" numberOfLines={1} style={{ color: colors.onSurface }}>{x.label}</Txt>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
       {i.kind === "move_out" ? (
         ref ? (
           <Card style={{ gap: spacing.sm, marginBottom: spacing.lg }} testID="move-in-reference">
             <Frame id={ref} label="Move-in view" />
             <Txt v="body">Record the same view, same height, walk slowly.</Txt>
           </Card>
-        ) : <Card style={{ marginBottom: spacing.lg }} testID="no-move-in-warning"><Row><Ionicons name="alert-circle" size={20} color={colors.onWarningSoft} /><Txt v="body" style={{ flex: 1 }}>There&apos;s no locked move-in record for this area, so the landlord will check it by hand.</Txt></Row></Card>
-      ) : <Txt v="body" style={{ marginBottom: spacing.lg }}>Walk slowly around the {a.label.toLowerCase()} for 20–40 seconds. Show any marks up close — this protects your deposit.</Txt>}
+        ) : <Card style={{ marginBottom: spacing.lg }} testID="no-move-in-warning"><Row><Ionicons name="alert-circle" size={20} color={colors.onWarningSoft} /><Txt v="body" style={{ flex: 1 }}>No move-in record. The owner checks by hand.</Txt></Row></Card>
+      ) : <Txt v="body" style={{ marginBottom: spacing.lg }}>Walk slowly. Show marks up close.</Txt>}
       <BigButton testID="record-video-button" icon="videocam" label={st === "done" ? "Record again" : "Record video (20–40 s)"} onPress={() => startCapture("video")} style={{ minHeight: 56 }} />
       <Row style={{ justifyContent: "space-between", marginVertical: spacing.sm }}>
         <TextButton testID="take-photos-button" icon="camera-outline" label="Take photos instead" onPress={() => startCapture("photo")} />

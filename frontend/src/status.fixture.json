@@ -1,0 +1,48 @@
+{
+  "_doc": "Shared by src/status.ts (Visual QA screen) and backend/tests/test_status_kinds.py. type -> status -> role -> expected kind.",
+  "ticket": {
+    "reported": {"tenant": "waiting", "landlord": "waiting", "handyman": "waiting"},
+    "finding_handyman": {"tenant": "waiting", "landlord": "waiting", "handyman": "waiting"},
+    "offered": {"tenant": "waiting", "landlord": "waiting", "handyman": "you"},
+    "awaiting_tenant_time": {"tenant": "you", "landlord": "waiting", "handyman": "waiting"},
+    "booked": {"tenant": "waiting", "landlord": "waiting", "handyman": "waiting"},
+    "fixed_pending_confirm": {"tenant": "you", "landlord": "waiting", "handyman": "waiting"},
+    "payment_pending_approval": {"tenant": "good", "landlord": "you", "handyman": "waiting"},
+    "closed": {"tenant": "good", "landlord": "good", "handyman": "good"},
+    "self_fix_limit_pending": {"tenant": "waiting", "landlord": "you", "handyman": "waiting"},
+    "self_fix_approved": {"tenant": "you", "landlord": "waiting", "handyman": "waiting"},
+    "receipt_submitted": {"tenant": "waiting", "landlord": "you", "handyman": "waiting"},
+    "reimbursement_pending_approval": {"tenant": "waiting", "landlord": "you", "handyman": "waiting"},
+    "needs_landlord": {"tenant": "waiting", "landlord": "you", "handyman": "waiting"},
+    "cancelled": {"tenant": "none", "landlord": "none", "handyman": "none"}
+  },
+  "rent": {
+    "paid": {"tenant": "good", "landlord": "good"},
+    "overdue": {"tenant": "you", "landlord": "you"},
+    "upcoming": {"tenant": "none", "landlord": "none"},
+    "vacant": {"tenant": "none", "landlord": "none"}
+  },
+  "lease": {
+    "draft": {"tenant": "waiting", "landlord": "you"},
+    "sent": {"tenant": "you", "landlord": "waiting"},
+    "tenant_signed": {"tenant": "waiting", "landlord": "you"},
+    "signed": {"tenant": "good", "landlord": "good"}
+  },
+  "moveout": {
+    "in_progress": {"tenant": "you", "landlord": "waiting"},
+    "submitted": {"tenant": "waiting", "landlord": "waiting"},
+    "analyzed": {"tenant": "waiting", "landlord": "you"},
+    "approved": {"tenant": "good", "landlord": "good"}
+  },
+  "approval": {
+    "pending": {"tenant": "waiting", "landlord": "you"}
+  },
+  "needs_viewer_action": {
+    "ticket": {"offered": ["handyman"], "awaiting_tenant_time": ["tenant"], "fixed_pending_confirm": ["tenant"], "payment_pending_approval": ["landlord"],
+               "self_fix_limit_pending": ["landlord"], "self_fix_approved": ["tenant"], "receipt_submitted": ["landlord"], "reimbursement_pending_approval": ["landlord"], "needs_landlord": ["landlord"]},
+    "lease": {"draft": ["landlord"], "sent": ["tenant"], "tenant_signed": ["landlord"]},
+    "moveout": {"in_progress": ["tenant"], "analyzed": ["landlord"]},
+    "approval": {"pending": ["landlord"]},
+    "rent": {"overdue": ["tenant", "landlord"]}
+  }
+}

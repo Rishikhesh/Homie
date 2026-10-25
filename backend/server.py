@@ -12,6 +12,7 @@ from money import router as money_router, unit_ledger, oldest_unpaid, deposit_du
 from plaid_bank import router as plaid_router
 from inspections import router as inspections_router, VIDEO_MAX_MB
 from voice import router as voice_router
+from cards import router as cards_router
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -780,7 +781,7 @@ async def create_lease(body: dict, user=Depends(get_user)):
     le.pop("_id", None)
     if tenant:
         th = await tenant_thread(tenant["id"], user["id"])
-        await post(th["id"], "Your lease is ready to review and sign. Open it from Home.", cards=[{"type": "lease", "lease_id": le["id"]}])
+        await post(th["id"], "Your lease is ready to review and sign. Open it from Home.", cards=[{"type": "doc", "ref_id": le["id"]}])
     await activity(user["id"], f"Lease sent for {unit['label']}", None, "system")
     return le
 
@@ -892,7 +893,7 @@ async def save_uploaded_lease(body: dict, user=Depends(get_user)):
     if tenant_id:
         await db.onboarding.update_one({"tenant_id": tenant_id}, {"$set": {"lease_signed": True}}, upsert=True)
         th = await tenant_thread(tenant_id, user["id"])
-        await post(th["id"], f"Your signed lease is now saved in Rentwise. You can read it from Home any time, and ask me about it.", cards=[{"type": "lease", "lease_id": le["id"]}])
+        await post(th["id"], f"Your signed lease is now saved in Rentwise. You can read it from Home any time, and ask me about it.", cards=[{"type": "doc", "ref_id": le["id"]}])
     await activity(user["id"], f"Signed lease uploaded for {unit['label']}", None, "system")
     return le
 
@@ -1005,6 +1006,7 @@ app.include_router(money_router)
 app.include_router(plaid_router)
 app.include_router(inspections_router)
 app.include_router(voice_router)
+app.include_router(cards_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 

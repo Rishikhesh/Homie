@@ -14,12 +14,12 @@ export default function TenantTickets() {
   const done = (data || []).filter((t) => ["closed", "cancelled"].includes(t.status));
   return (
     <Screen tab testID="tenant-tickets-screen" refresh={<RefreshControl refreshing={false} onRefresh={reload} />}>
-      <LargeHeader title="Tickets" subtitle="Your repairs and what happens next" />
+      <LargeHeader title="Repairs" />
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
       {loading && !data ? <Skeleton /> : (
         <>
-          <Section title="Open" testID="tenant-tickets-open">
-            {open.length ? open.map((t, i) => <TicketRow key={t.id} t={t} role="tenant" index={i} />) : <EmptyState testID="tenant-tickets-none" title="No open repairs" body="Tell Rentwise what's wrong in Chat and a ticket appears here." action="Report a problem" onAction={() => router.push("/(tenant)/chat")} />}
+          <Section title="In progress" testID="tenant-tickets-open">
+            {open.length ? open.map((t, i) => <TicketRow key={t.id} t={t} role="tenant" index={i} />) : <EmptyState testID="tenant-tickets-none" icon="leaf-outline" title="No repairs" action="Report a problem" onAction={() => router.push("/(tenant)/chat")} />}
           </Section>
           <TextButton testID="tenant-done-toggle" label={`Done (${done.length}) ${showDone ? "⌄" : "›"}`} onPress={() => setShowDone(!showDone)} />
           {showDone ? done.map((t, i) => <TicketRow key={t.id} t={t} role="tenant" index={i} />) : null}

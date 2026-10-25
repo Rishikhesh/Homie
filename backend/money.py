@@ -68,7 +68,7 @@ async def record_payment(unit, amount, period, source, kind="rent", bank_txn_id=
     tenant = await db.users.find_one({"id": unit["tenant_id"]}, NF)
     th = await tenant_thread(unit["tenant_id"], unit["landlord_id"])
     what = "Deposit" if kind == "deposit" else f"{month_name(period)} rent"
-    await post(th["id"], f"{what} received: {money(amount)}. Thank you! Your receipt is in Payments.", cards=[{"type": "payment_receipt", "payment_id": pay["id"]}])
+    await post(th["id"], f"{what} received: {money(amount)}. Thank you! Your receipt is in Payments.", cards=[{"type": "rent", "ref_id": unit["id"]}, {"type": "doc", "ref_id": pay["id"]}])
     await activity(unit["landlord_id"], f"{first(tenant['name'])} paid {money(amount)} ({what.lower()})", None, "money")
     return pay
 
@@ -171,6 +171,29 @@ async def receipt_pdf(pid: str, user=Depends(get_media_user)):
 
 
 # ---------------- landlord money ----------------
+@router.get("/money/grid")
+async def rent_grid(user=Depends(get_user)):
+    """Rooms × last 6 months, each cell one status."""
+    need(user, "landlord")
+    cur = period_of()
+    y, m = int(cur[:4]), int(cur[5:7])
+    periods = []
+    for _ in range(6):
+        periods.insert(0, f"{y:04d}-{m:02d}")
+        m -= 1
+        if not m:
+            y, m = y - 1, 12
+    rows = []
+    async for p in db.properties.find({"landlord_id": user["id"]}, NF).sort("created_at", 1):
+        async for u in db.units.find({"property_id": p["id"]}, NF):
+            led = {r["period"]: r for r in await unit_ledger(u)}
+            t = await db.users.find_one({"id": u.get("tenant_id")}, NF) if u.get("tenant_id") else None
+            rows.append({"unit_id": u["id"], "label": u["label"], "property": p["name"], "tenant": first(t["name"]) if t else None, "due_day": u["due_day"],
+                         "cells": [{"period": x, "status": led[x]["status"] if x in led else "vacant", "paid": led[x]["paid"] if x in led else 0,
+                                    "due": led[x]["due"] if x in led else 0} for x in periods]})
+    return {"periods": [{"period": x, "label": month_name(x)[:3]} for x in periods], "rows": rows}
+
+
 @router.get("/money/overview")
 async def overview(user=Depends(get_user)):
     need(user, "landlord")

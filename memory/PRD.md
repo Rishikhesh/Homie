@@ -72,3 +72,12 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Rentwise
 - Read aloud (Emergent TTS, tts-1 "coral", cached) on agent replies; tap-to-talk mic (Emergent STT gpt-4o-mini-transcribe) fills the message box.
 - Fixes after testing: audio format detected from file bytes (web webm / phone m4a), unclear audio returns friendly 422, read-aloud permission matches chat read rules, failed playback shows toast, icon-only send button for wider message box.
 - Hands-free mode (DONE, iteration_12): switch at top of chat (remembered). When on, spoken messages send automatically and the first Rentwise reply after them is read aloud.
+
+## Visual language pass ("See it, don't read it") — June 2026 (visual-language-prompt.md)
+- Foundation: src/status.ts (statusOf → good/waiting/you/none, shared fixture src/status.fixture.json), theme status colors (amber #B26A00 contrast fix), src/visual.tsx (Status, StripCard, BigNumber, Tracker, PersonChip, TimeChoice, YesNo, Countdown, MoneyCard, PhotoPair, DocTile, IconRow, More, SuccessBurst), /visual-qa screen (DEMO only, Settings link).
+- Agent: one-line rule (≤12 words, DETAILS behind More), server split >20 words (cards.shorten) + fit_line, typed live cards (GET /api/cards/{type}/{ref}, cards.py), show_card tool on all seats (403 on others' records), auto repair cards, auto yes_no cards; src/chatcards.tsx renders them.
+- Screens: tenant home tiles, Repairs rename (tab testID kept tab-tickets), repair detail tracker/YesNo/TimeChoice, payments, lease icon summary; landlord home banner/money/homes/this-week, MoneyCard approvals, rent grid (GET /api/money/grid), Homes with room strips; handyman offer/number pad/countdown/done; move-in area tiles, move-out summary.
+- Tests: tests/test_status_kinds.py, tests/test_visual_cards.py; eval: python -m evals.visual
+- Voice kept on for everyone (user choice).
+- Follow-up (user feedback): removed all colored left card borders, reduced text/icon sizes app-wide (BigNumber 28/22, status icons 16/20, buttons 50px, tracker 30/22), fixed tracker overflow and iOS number clipping; visit times use the server label in the property's time zone; landlord tab "Homes". Tested in iteration_14.
+- Open polish: statement PDF ISO dates, "Handym…" tab label at 360px.

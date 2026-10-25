@@ -29,7 +29,7 @@ export default function PropertyDetail() {
         {p.units.map((u: any, i: number) => (
           <Card key={u.id} index={i} testID={`unit-card-${u.id}`}>
             <Row style={{ justifyContent: "space-between" }}>
-              <Txt v="label" style={{ fontSize: 17 }}>{u.label}</Txt>
+              <Txt v="label">{u.label}</Txt>
               <Txt v="label">{money(u.rent)}/mo · day {u.due_day}</Txt>
             </Row>
             {u.tenant ? (

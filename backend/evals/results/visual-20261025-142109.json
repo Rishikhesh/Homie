@@ -1,0 +1,294 @@
+{
+  "summary": {
+    "short_pct": 65,
+    "short_pass": false,
+    "repair": "2/2",
+    "repair_pass": true,
+    "yes_no": "2/4",
+    "yes_no_pass": false
+  },
+  "rows": [
+    {
+      "n": 1,
+      "msg": "My dryer stopped working",
+      "reply": "Sorry about that. Does it not turn on at all, or run without heat?",
+      "words": 14,
+      "short": false,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": true,
+      "yes_no_card": false,
+      "cards": [],
+      "s": 4.5
+    },
+    {
+      "n": 2,
+      "msg": "It won't spin at all, the drum is stuck",
+      "reply": "I've asked Hank Miller, who fixed your kitchen sink in March. I'll update you soon.",
+      "words": 15,
+      "short": false,
+      "repair": true,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "repair"
+      ],
+      "s": 4.5
+    },
+    {
+      "n": 3,
+      "msg": "When is my rent due?",
+      "reply": "Rent of $1,200 is due on the 1st of each month.",
+      "words": 11,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "rent"
+      ],
+      "s": 3.0
+    },
+    {
+      "n": 4,
+      "msg": "How much is my rent?",
+      "reply": "Your rent is $1,200 a month, due on the 1st.",
+      "words": 10,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "rent"
+      ],
+      "s": 4.5
+    },
+    {
+      "n": 5,
+      "msg": "The kitchen faucet is dripping",
+      "reply": "Sorry about that. Please send a photo of the faucet. Is water pooling under the sink?",
+      "words": 16,
+      "short": false,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": true,
+      "yes_no_card": false,
+      "cards": [],
+      "s": 4.5
+    },
+    {
+      "n": 6,
+      "msg": "Can I have a cat?",
+      "reply": "Yes, your lease allows one cat.",
+      "words": 6,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 7.5
+    },
+    {
+      "n": 7,
+      "msg": "What's the wifi password situation, who sets up internet?",
+      "reply": "Internet is split between the rooms and paid by tenants.",
+      "words": 10,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 6.0
+    },
+    {
+      "n": 8,
+      "msg": "Is Hank coming to fix the dryer?",
+      "reply": "I've asked Hank, but he hasn't said yes yet. I'll tell you once he does.",
+      "words": 15,
+      "short": false,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "repair"
+      ],
+      "s": 6.0
+    },
+    {
+      "n": 9,
+      "msg": "The bathroom light flickers",
+      "reply": "Any burning smell, buzzing, or sparks from that light?",
+      "words": 9,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 7.5
+    },
+    {
+      "n": 10,
+      "msg": "How many days does my landlord have to return my deposit?",
+      "reply": "In California, it's 21 days after you move out (general info, not legal advice).",
+      "words": 14,
+      "short": false,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "law"
+      ],
+      "s": 4.5
+    },
+    {
+      "n": 11,
+      "msg": "Thanks!",
+      "reply": "You're welcome! I still need the faucet photo and your light answer.",
+      "words": 12,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 4.5
+    },
+    {
+      "n": 12,
+      "msg": "My smoke alarm keeps beeping",
+      "reply": "If you see smoke or smell burning, get out and call 911.",
+      "words": 12,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "yes_no"
+      ],
+      "s": 7.5
+    },
+    {
+      "n": 13,
+      "msg": "Can I paint my bedroom?",
+      "reply": "Your lease doesn't mention painting, so I've asked Jordan. Please don't paint until he says OK.",
+      "words": 16,
+      "short": false,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 6.0
+    },
+    {
+      "n": 14,
+      "msg": "What's happening with my repairs?",
+      "reply": "Dryer: still waiting for Hank to say yes.",
+      "words": 8,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "repair"
+      ],
+      "s": 6.0
+    },
+    {
+      "n": 15,
+      "msg": "When does my lease end?",
+      "reply": "Your lease ends on Apr 1, 2027. You'd need to give 30 days' notice if you plan to leave.",
+      "words": 19,
+      "short": false,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 6.0
+    },
+    {
+      "n": 16,
+      "msg": "The front door lock is sticky",
+      "reply": "Can you still lock and unlock the door with your key?",
+      "words": 11,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": true,
+      "yes_no_card": true,
+      "cards": [
+        "yes_no"
+      ],
+      "s": 4.5
+    },
+    {
+      "n": 17,
+      "msg": "Do I need renters insurance?",
+      "reply": "Yes. Your lease says you must keep renters insurance during the lease.",
+      "words": 12,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [],
+      "s": 6.0
+    },
+    {
+      "n": 18,
+      "msg": "Can someone come tomorrow morning?",
+      "reply": "I've asked Hank about tomorrow morning for the dryer.",
+      "words": 9,
+      "short": true,
+      "repair": true,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "repair"
+      ],
+      "s": 7.5
+    },
+    {
+      "n": 19,
+      "msg": "The heater makes a loud noise",
+      "reply": "Do you smell gas or burning near the heater?",
+      "words": 9,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": true,
+      "yes_no_card": true,
+      "cards": [
+        "yes_no"
+      ],
+      "s": 6.0
+    },
+    {
+      "n": 20,
+      "msg": "What do I do if I'm locked out?",
+      "reply": "Are you locked out right now? I can send a locksmith.",
+      "words": 11,
+      "short": true,
+      "repair": false,
+      "repair_card": true,
+      "yes_no_q": false,
+      "yes_no_card": true,
+      "cards": [
+        "yes_no"
+      ],
+      "s": 7.5
+    }
+  ]
+}

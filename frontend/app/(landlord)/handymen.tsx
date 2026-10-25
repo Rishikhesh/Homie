@@ -14,7 +14,7 @@ export function HmCard({ h, index, right, onPress }: any) {
       <Row>
         <Avatar name={h.name} size={46} />
         <View style={{ flex: 1, gap: 2 }}>
-          <Txt v="label" style={{ fontSize: 17 }}>{h.name}</Txt>
+          <Txt v="label">{h.name}</Txt>
           <Txt v="small">{(h.trades || []).join(", ")} · {h.city}</Txt>
           <Txt v="small" color={colors.onSurface}>★ {h.rating_avg?.toFixed?.(1) || "New"}{h.jobs_for_you != null ? ` · ${h.jobs_for_you} jobs for you` : ` · ${h.jobs_done || 0} ${h.jobs_done === 1 ? "job" : "jobs"}`}</Txt>
           {h.last_job ? <Txt v="small">Last: {h.last_job}</Txt> : null}
@@ -42,7 +42,7 @@ export default function Handymen() {
         {mine.loading && !mine.data ? <Skeleton count={1} /> : (
           <>
             {(mine.data?.handymen || []).map((h: any, i: number) => <HmCard key={h.user_id} h={h} index={i} onPress={() => router.push(`/handyman/${h.user_id}`)} />)}
-            {(mine.data?.invites || []).map((i: any) => <Card key={i.id} testID={`handyman-invite-${i.id}`}><Txt v="label">{i.email}</Txt><StatusPill label="Invite pending" tone="warning" /></Card>)}
+            {(mine.data?.invites || []).map((i: any) => <Card key={i.id} testID={`handyman-invite-${i.id}`}><Txt v="label">{i.email}</Txt><StatusPill label="Invite waiting" tone="warning" /></Card>)}
             {mine.data && !mine.data.handymen.length ? <EmptyState testID="my-handymen-empty" icon="construct-outline" title="No handymen yet" body="Rentwise asks your own handymen first. Invite someone you trust or add one from below." action="Invite a handyman" onAction={() => setInvite(true)} /> : null}
           </>
         )}

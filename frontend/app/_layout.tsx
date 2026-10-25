@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/src/components/error-boundary";
 import { queryClient } from "@/src/query-client";
 import { AuthProvider, useAuth } from "@/src/auth";
 import { ToastProvider, Txt } from "@/src/ui";
+import { SuccessBurstHost } from "@/src/visual";
 import { useTheme, spacing } from "@/src/theme";
 
 LogBox.ignoreAllLogs(true);
@@ -25,7 +26,7 @@ function targetFor(me: any): string {
   if (u.role === "handyman" && !me.handyman) return "welcome";
   return `(${u.role})`;
 }
-const SHARED = ["ticket", "thread", "property", "handyman", "settings", "lease", "report", "rights", "accept", "statement", "inspection"];
+const SHARED = ["ticket", "thread", "property", "handyman", "settings", "lease", "report", "rights", "accept", "statement", "inspection", "visual-qa"];
 
 function Gate() {
   const { me, loading, actAs } = useAuth();
@@ -55,6 +56,7 @@ function Gate() {
         </Pressable>
       ) : null}
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface } }} />
+      <SuccessBurstHost />
     </View>
   );
 }

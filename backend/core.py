@@ -189,8 +189,12 @@ async def read_file(file_id):
 QUIET_TENANT = contextvars.ContextVar("quiet_tenant", default=None)
 
 
-async def post(thread_id, text, role="assistant", cards=None, attachments=None, sender_id="agent"):
-    m = {"id": uid(), "thread_id": thread_id, "role": role, "sender_id": sender_id, "text": text,
+async def post(thread_id, text, role="assistant", cards=None, attachments=None, sender_id="agent", details=None):
+    if role == "assistant":  # one short line; anything longer goes behind "More ›"
+        from cards import shorten
+        text, extra = shorten(text)
+        details = " ".join(x for x in (extra, details) if x) or None
+    m = {"id": uid(), "thread_id": thread_id, "role": role, "sender_id": sender_id, "text": text, "details": details,
          "cards": cards or [], "attachments": attachments or [], "created_at": iso()}
     await db.messages.insert_one(dict(m))
     await db.threads.update_one({"id": thread_id}, {"$set": {"updated_at": m["created_at"]}})

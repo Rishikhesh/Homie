@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { api, money } from "@/src/api";
 import { BigButton, ConfirmSheet, useToast } from "@/src/ui";
+import { burst } from "@/src/visual";
 import { spacing } from "@/src/theme";
 
 export function PayButton({ due, deposit, onPaid, landlord }: { due: any; deposit?: number | null; onPaid: () => void; landlord: string }) {
@@ -9,7 +10,7 @@ export function PayButton({ due, deposit, onPaid, landlord }: { due: any; deposi
   const [busy, setBusy] = useState(false);
   const pay = async () => {
     setBusy(true);
-    try { await api("/rent/pay", { body: { kind: c } }); toast("Paid — receipt is in Payments"); setC(null); onPaid(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
+    try { await api("/rent/pay", { body: { kind: c } }); burst("Paid"); toast("Paid. Receipt is in Payments"); setC(null); onPaid(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
   };
   return (
     <>

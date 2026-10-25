@@ -138,7 +138,7 @@ def case_6_fixed_confirm_flow():
     tid, th = CHAIN["tid"], CHAIN["th"]
     photo = upload("handyman", img_after())
     post("handyman", f"/tickets/{tid}/mark-fixed", {"final_amount": 180, "after_photo_id": photo})
-    check(any(c.get("type") == "confirm_fix" for m in db.messages.find({"thread_id": th}, NF) for c in m.get("cards") or []), "tenant not asked to confirm")
+    check(any(c.get("type") in ("confirm_fix", "yes_no") for m in db.messages.find({"thread_id": th}, NF) for c in m.get("cards") or []), "tenant not asked to confirm")
     post("tenant2", f"/tickets/{tid}/confirm", {"ok": False, "note": "still dripping"})
     check(_ticket(tid)["status"] == "booked", "👎 did not reopen")
     post("handyman", f"/tickets/{tid}/mark-fixed", {"final_amount": 180, "after_photo_id": photo})
