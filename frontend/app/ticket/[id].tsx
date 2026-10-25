@@ -14,20 +14,23 @@ const pad = (n: number) => String(n).padStart(2, "0");
 // Wall-clock time as picked; the server reads it in the property's time zone.
 const wall = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
+const defaultSlot = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d; };
+
 function AcceptSheet({ t, visible, onClose, onDone }: any) {
   const toast = useToast();
   const [quote, setQuote] = useState("");
-  const [slots, setSlots] = useState<(Date | null)[]>([null, null, null]);
+  const [slot, setSlot] = useState<Date>(defaultSlot);
   const [busy, setBusy] = useState(false);
-  const ok = Number(quote) > 0 && slots.filter(Boolean).length >= 2;
+  const ok = Number(quote) > 0 && slot.getTime() > Date.now();
   return (
     <Sheet visible={visible} onClose={onClose} title="Accept this job" testID="accept-sheet">
       <View style={{ gap: spacing.lg }}>
         <Field testID="accept-quote-input" label="Your price ($)" keyboardType="decimal-pad" value={quote} onChangeText={setQuote} hint="The owner approves this before the visit" />
-        {slots.map((s, i) => <DateTimeField key={i} testID={`accept-slot-${i}`} label={`Time option ${i + 1}${i === 2 ? " (optional)" : ""}`} value={s} onChange={(d) => setSlots(slots.map((x, j) => (j === i ? d : x)))} />)}
-        <BigButton testID="accept-submit" label="Send quote & times" disabled={!ok} loading={busy} onPress={async () => {
+        <DateTimeField testID="accept-slot" label="When can you come?" value={slot} onChange={setSlot} />
+        <Txt v="small" testID="accept-slot-summary">Visit: {slot.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</Txt>
+        <BigButton testID="accept-submit" label="Send quote & time" disabled={!ok} loading={busy} onPress={async () => {
           setBusy(true);
-          try { await api(`/tickets/${t.id}/accept`, { body: { quote: Number(quote), slots: slots.filter(Boolean).map((d) => wall(d as Date)) } }); toast("Sent! Rentwise will confirm the visit"); onDone(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
+          try { await api(`/tickets/${t.id}/accept`, { body: { quote: Number(quote), slots: [wall(slot)] } }); toast("Sent! Rentwise will confirm the visit"); onDone(); } catch (e: any) { toast(e.message, "error"); } finally { setBusy(false); }
         }} />
       </View>
     </Sheet>
@@ -148,7 +151,7 @@ export default function TicketDetail() {
       <AcceptSheet t={t} visible={sheet === "accept"} onClose={() => setSheet(null)} onDone={() => { setSheet(null); reload(); }} />
       <FixedSheet t={t} visible={sheet === "fixed"} onClose={() => setSheet(null)} onDone={() => { setSheet(null); reload(); }} />
       <ReceiptSheet t={t} visible={sheet === "receipt"} onClose={() => setSheet(null)} onDone={() => { setSheet(null); reload(); }} />
-      <ConfirmSheet visible={sheet === "decline"} onClose={() => setSheet(null)} title="Decline this job?" body="Rentwise will offer it to someone else." confirmLabel="Decline" danger testID="decline-confirm" onConfirm={() => act("decline", {}, "Declined")} />
+      <ConfirmSheet visible={sheet === "decline"} onClose={() => setSheet(null)} title="Decline this job?" body="Rentwise will offer it to someone else." confirmLabel="Decline" danger testID="decline-confirm" onConfirm={async () => { try { await api(`/tickets/${id}/decline`, { body: {} }); toast("Declined — it's in your Missed list"); setSheet(null); if (router.canGoBack()) router.back(); else router.replace("/(handyman)" as any); } catch (e: any) { toast(e.message, "error"); } }} />
       <ConfirmSheet visible={sheet === "selffix"} onClose={() => setSheet(null)} title="Fix it yourself?" body="Rentwise checks a spending limit with the owner first. Don't pay anyone until it's approved — then the cost comes off your next rent." confirmLabel="Ask for a limit" testID="selffix-confirm" onConfirm={() => act("self-fix", {}, "Asked the owner for a limit")} />
     </Screen>
   );

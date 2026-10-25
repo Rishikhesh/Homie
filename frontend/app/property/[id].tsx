@@ -43,6 +43,7 @@ export default function PropertyDetail() {
               {!u.tenant && !u.invite ? <TextButton testID={`invite-tenant-${u.id}`} icon="person-add-outline" label="Invite tenant" onPress={() => setInv(u)} /> : null}
               {u.tenant?.is_sample ? <TextButton testID={`replace-tenant-${u.id}`} icon="swap-horizontal" label="Invite a real tenant" onPress={() => setInv({ ...u, replace: true })} /> : null}
               {(u.tenant || u.invite) && (!u.lease || u.lease.status !== "signed") ? <TextButton testID={`prepare-lease-${u.id}`} icon="document-text-outline" label={u.lease ? "Open lease" : "Prepare lease"} onPress={() => router.push(u.lease ? `/lease/${u.lease.id}` : `/lease/new?unit=${u.id}`)} /> : null}
+              {(u.tenant || u.invite) && (!u.lease || u.lease.status !== "signed") ? <TextButton testID={`upload-lease-${u.id}`} icon="cloud-upload-outline" label="Upload signed lease" onPress={() => router.push(`/lease/upload?unit=${u.id}`)} /> : null}
               {u.lease?.status === "signed" ? <TextButton testID={`view-lease-${u.id}`} icon="document-text-outline" label="Lease" onPress={() => router.push(`/lease/${u.lease.id}`)} /> : null}
             </Row>
           </Card>

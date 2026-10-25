@@ -23,13 +23,14 @@ export default function LeaseView() {
   const t = l.terms;
   return (
     <Screen testID="lease-screen">
-      <LargeHeader title="Lease" subtitle={l.status === "signed" ? "Fully signed" : l.status === "tenant_signed" ? "Tenant signed — waiting for owner" : "Waiting for tenant"} back={() => router.back()} />
+      <LargeHeader title="Lease" subtitle={l.source === "upload" ? "Signed lease (uploaded)" : l.status === "signed" ? "Fully signed" : l.status === "tenant_signed" ? "Tenant signed — waiting for owner" : "Waiting for tenant"} back={() => router.back()} />
       <Card agent style={{ marginBottom: spacing.xl }} testID="lease-key-terms">
         <Txt v="label">Key terms</Txt>
         <Txt v="money">{money(t.rent)}<Txt v="body">/mo</Txt></Txt>
-        <Txt v="body">Due day {t.due_day} · Deposit {money(t.deposit)} · Late fee {money(t.late_fee || 0)}</Txt>
-        <Txt v="body">{t.start} → {t.end} · {t.notice_days || 30} days notice</Txt>
+        <Txt v="body">Due day {t.due_day} · Deposit {money(t.deposit)}{t.deposit_paid ? " (paid)" : ""}{t.late_fee != null ? ` · Late fee ${money(t.late_fee)}` : ""}</Txt>
+        <Txt v="body">{t.start} → {t.end}{t.notice_days != null ? ` · ${t.notice_days} days notice` : ""}</Txt>
         <Txt v="body">Pets: {t.pets || "Ask first"}</Txt>
+        {l.summary ? <Txt v="small" style={{ marginTop: spacing.sm }}>{l.summary}</Txt> : null}
       </Card>
       <Section title="Full text">
         <Card>{(l.chunks || []).map((c: string, i: number) => <Txt key={i} v="body" style={{ marginBottom: spacing.md }}>{c}</Txt>)}</Card>
@@ -42,7 +43,7 @@ export default function LeaseView() {
           <Txt v="small">Simulated e-signature. Your typed name, the time and a document fingerprint are recorded.</Txt>
         </View>
       ) : null}
-      {l.status === "signed" ? <TextButton testID="lease-pdf-button" icon="document-text-outline" label="Signed PDF" onPress={() => openPdf(`/leases/${id}/pdf`)} /> : null}
+      {l.status === "signed" ? <TextButton testID="lease-pdf-button" icon="document-text-outline" label={l.source === "upload" ? "Original PDF" : "Signed PDF"} onPress={() => openPdf(`/leases/${id}/pdf`)} /> : null}
       <Txt v="small" color={colors.muted} style={{ marginTop: spacing.lg }}>Fingerprint: {l.doc_hash.slice(0, 16)}…</Txt>
     </Screen>
   );

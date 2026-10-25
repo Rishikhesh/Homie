@@ -1,14 +1,15 @@
-import asyncio, hashlib, httpx
+import asyncio, hashlib, httpx, io, json, re
 from datetime import timedelta
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, UploadFile, File, Request
 from fastapi.responses import Response
 from starlette.middleware.cors import CORSMiddleware
 from core import (db, NF, uid, iso, now, get_user, need, DEMO, APP_NAME, period_of, money, first, tz_for, put_object, get_object, init_storage,
-                  tenant_thread, landlord_thread, post, activity, log)
+                  tenant_thread, landlord_thread, post, activity, log, read_file, OPUS)
 import flows
 import agent
 from data import seed_static, create_sample_home, lease_text, doc_hash, pdf_bytes, STATE_RULES, DEPOSIT_MONTHS
 from money import router as money_router, unit_ledger, oldest_unpaid, deposit_due
+from plaid_bank import router as plaid_router
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
@@ -128,7 +129,8 @@ async def accept_invite(iid: str, user=Depends(get_user)):
         if not u:
             raise HTTPException(409, "This room already has a tenant")
         await db.leases.update_many({"invite_id": iid}, {"$set": {"tenant_id": user["id"]}})
-        await db.onboarding.update_one({"tenant_id": user["id"]}, {"$setOnInsert": {"tenant_id": user["id"], "lease_signed": False, "insurance": {"done": False}, "utilities": {}}}, upsert=True)
+        pre_signed = bool(await db.leases.find_one({"invite_id": iid, "status": "signed"}))
+        await db.onboarding.update_one({"tenant_id": user["id"]}, {"$setOnInsert": {"tenant_id": user["id"], "lease_signed": pre_signed, "insurance": {"done": False}, "utilities": {}}}, upsert=True)
         th = await tenant_thread(user["id"], inv["landlord_id"])
         ll = await db.users.find_one({"id": inv["landlord_id"]}, NF)
         await post(th["id"], f"Welcome, {first(user['name'])}! I'm Rentwise — I look after your home for {first(ll['name'])}. Report a problem, ask about rent or your lease any time.")
@@ -525,7 +527,11 @@ async def hm_jobs(user=Depends(get_user)):
     ts = [await ticket_view(t, user) async for t in db.tickets.find({"handyman_id": user["id"]}, NF).sort("created_at", -1)]
     return {"offers": [t for t in ts if t["status"] == "offered"],
             "booked": [t for t in ts if t["status"] in ("awaiting_tenant_time", "booked", "fixed_pending_confirm")],
-            "done": [t for t in ts if t["status"] in ("payment_pending_approval", "closed")]}
+            "done": [t for t in ts if t["status"] in ("payment_pending_approval", "closed")],
+            "missed": [{"id": t["id"], "title": t["title"], "trade": t["trade"], "city": (await db.properties.find_one({"id": t["property_id"]}, NF) or {}).get("city"),
+                        "reason": next((m["reason"] for m in reversed(t.get("missed") or []) if m["hid"] == user["id"]), "declined"),
+                        "at": next((m["at"] for m in reversed(t.get("missed") or []) if m["hid"] == user["id"]), t["created_at"])}
+                       async for t in db.tickets.find({"declined_by": user["id"], "handyman_id": {"$ne": user["id"]}}, NF).sort("created_at", -1).limit(20)]}
 
 
 # ---------------- threads ----------------
@@ -726,6 +732,8 @@ async def create_lease(body: dict, user=Depends(get_user)):
     if not tenant and not inv:
         raise HTTPException(400, "Invite a tenant to this room first")
     terms = body.get("terms") or {}
+    if await db.leases.find_one({"unit_id": unit["id"], "status": "signed", "source": "upload"}):
+        raise HTTPException(409, "This room already has a signed lease on file")
     for k in ("rent", "deposit", "start", "end"):
         if terms.get(k) in (None, ""):
             raise HTTPException(400, "Add rent, deposit, start and end dates")
@@ -744,6 +752,118 @@ async def create_lease(body: dict, user=Depends(get_user)):
         th = await tenant_thread(tenant["id"], user["id"])
         await post(th["id"], "Your lease is ready to review and sign. Open it from Home.", cards=[{"type": "lease", "lease_id": le["id"]}])
     await activity(user["id"], f"Lease sent for {unit['label']}", None, "system")
+    return le
+
+
+async def _lease_unit(user, unit_id):
+    need(user, "landlord")
+    unit = await db.units.find_one({"id": unit_id, "landlord_id": user["id"]}, NF)
+    if not unit:
+        raise HTTPException(404, "Room not found")
+    inv = await db.invites.find_one({"unit_id": unit["id"], "status": "pending"}, NF)
+    if not unit.get("tenant_id") and not inv:
+        raise HTTPException(400, "Invite a tenant to this room first")
+    return unit, inv
+
+
+def _pdf_text(data):
+    from pypdf import PdfReader
+    reader = PdfReader(io.BytesIO(data))
+    return "\n".join((p.extract_text() or "") for p in reader.pages).strip()
+
+
+def _chunks(text):
+    parts = [re.sub(r"\s+", " ", p).strip() for p in re.split(r"\n\s*\n", text)]
+    parts = [p for p in parts if len(p) > 20]
+    if len(parts) < 3:  # no blank lines in the PDF text: split by numbered clauses or sentences
+        flat = re.sub(r"\s+", " ", text)
+        parts = [p.strip() for p in re.split(r"(?<![-/\d])(?=\b\d{1,2}\.\s+[A-Z])", flat) if len(p.strip()) > 20]
+    out = []
+    for p in parts:
+        while len(p) > 900:
+            cut = p.rfind(". ", 0, 900) + 1 or 900
+            out.append(p[:cut].strip())
+            p = p[cut:].strip()
+        if p:
+            out.append(p)
+    return out[:80]
+
+
+EXTRACT_SYS = ("You read US residential leases. Return ONLY a JSON object with these keys: tenant_name (string), rent (number, monthly), "
+               "deposit (number), start (YYYY-MM-DD), end (YYYY-MM-DD), due_day (1-28), late_fee (number), notice_days (number), "
+               "pets (short sentence), utilities (short sentence), summary (one plain sentence describing the lease), "
+               "missing (list of key names you could not find). Use null for anything not in the lease. Never invent values.")
+
+
+@api.post("/leases/extract")
+async def extract_lease(body: dict, user=Depends(get_user)):
+    unit, _ = await _lease_unit(user, body.get("unit_id"))
+    f = await db.files.find_one({"id": body.get("file_id"), "owner_id": user["id"]}, NF)
+    if not f:
+        raise HTTPException(404, "File not found")
+    if f["content_type"] != "application/pdf" and not f["path"].endswith(".pdf"):
+        raise HTTPException(415, "Please pick a PDF of the lease")
+    data, _ = await read_file(f["id"])
+    try:
+        text = await asyncio.to_thread(_pdf_text, data)
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, "I couldn't open that PDF. Please try another copy")
+    if len(text) < 200:
+        raise HTTPException(422, "This PDF has no readable text (it may be a scan). Please upload a typed copy, or prepare the lease in Rentwise")
+    raw = await agent.quick(EXTRACT_SYS, text[:60000], model=OPUS)
+    m = re.search(r"\{.*\}", raw or "", re.S)
+    try:
+        terms = json.loads(m.group(0)) if m else None
+    except ValueError:
+        terms = None
+    if not isinstance(terms, dict):
+        raise HTTPException(502, "I couldn't read the terms just now. Tap to try again")
+    if not terms.get("due_day"):
+        terms["due_day"] = unit["due_day"]
+    return {"file_id": f["id"], "terms": terms, "chunks": _chunks(text), "pages_text_len": len(text)}
+
+
+@api.post("/leases/upload")
+async def save_uploaded_lease(body: dict, user=Depends(get_user)):
+    unit, inv = await _lease_unit(user, body.get("unit_id"))
+    f = await db.files.find_one({"id": body.get("file_id"), "owner_id": user["id"]}, NF)
+    if not f:
+        raise HTTPException(404, "File not found")
+    t = body.get("terms") or {}
+    for k in ("rent", "deposit", "start", "end"):
+        if t.get(k) in (None, ""):
+            raise HTTPException(400, "Add rent, deposit, start and end dates")
+    try:
+        terms = {"rent": float(t["rent"]), "deposit": float(t["deposit"]), "start": str(t["start"])[:10], "end": str(t["end"])[:10],
+                 "due_day": int(t.get("due_day") or unit["due_day"]),
+                 "late_fee": float(t["late_fee"]) if t.get("late_fee") not in (None, "") else None,
+                 "notice_days": int(float(t["notice_days"])) if t.get("notice_days") not in (None, "") else None,
+                 "pets": t.get("pets") or "", "utilities": t.get("utilities") or "", "deposit_paid": bool(t.get("deposit_paid"))}
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Rent, deposit and due day must be numbers")
+    if terms["rent"] <= 0 or terms["deposit"] < 0 or not 1 <= terms["due_day"] <= 28:
+        raise HTTPException(400, "Rent must be above $0 and the due day between 1 and 28")
+    if await db.leases.find_one({"file_id": f["id"], "status": {"$ne": "void"}}):
+        raise HTTPException(409, "This lease file is already saved")
+    data, _ = await read_file(f["id"])
+    text = await asyncio.to_thread(_pdf_text, data)
+    chunks = _chunks(text)
+    tenant_id = unit.get("tenant_id")
+    await db.leases.update_many({"unit_id": unit["id"], "status": {"$ne": "void"}}, {"$set": {"status": "void"}})
+    le = {"id": uid(), "unit_id": unit["id"], "tenant_id": tenant_id, "invite_id": inv["id"] if inv and not tenant_id else None, "landlord_id": user["id"],
+          "terms": terms, "text": text, "chunks": chunks, "status": "signed", "source": "upload", "file_id": f["id"], "summary": t.get("summary") or "",
+          "signatures": [], "doc_hash": f["hash"], "created_at": iso()}
+    prop = await db.properties.find_one({"id": unit["property_id"]}, NF)
+    months = DEPOSIT_MONTHS.get(prop["state"])
+    if months and terms["deposit"] > months * terms["rent"]:
+        le["warning"] = f"{STATE_RULES[prop['state']]['name']} limits deposits to {STATE_RULES[prop['state']]['deposit_limit']}."
+    await db.leases.insert_one(dict(le))
+    le.pop("_id", None)
+    if tenant_id:
+        await db.onboarding.update_one({"tenant_id": tenant_id}, {"$set": {"lease_signed": True}}, upsert=True)
+        th = await tenant_thread(tenant_id, user["id"])
+        await post(th["id"], f"Your signed lease is now saved in Rentwise. You can read it from Home any time, and ask me about it.", cards=[{"type": "lease", "lease_id": le["id"]}])
+    await activity(user["id"], f"Signed lease uploaded for {unit['label']}", None, "system")
     return le
 
 
@@ -785,6 +905,9 @@ async def sign_lease(lid: str, body: dict, user=Depends(get_user)):
 @api.get("/leases/{lid}/pdf")
 async def lease_pdf(lid: str, user=Depends(get_user)):
     le = await get_lease(lid, user)
+    if le.get("file_id"):
+        data, _ = await read_file(le["file_id"])
+        return Response(data, media_type="application/pdf")
     lines = le["text"].split("\n\n") + ["SIGNATURES:"] + [f"{s['role'].title()}: /{s['typed_name']}/ signed {s['signed_at'][:19].replace('T', ' ')} UTC" for s in le["signatures"]]
     b = await asyncio.to_thread(pdf_bytes, "Residential Lease", lines, f"Document hash (SHA-256): {le['doc_hash']} · Simulated e-signature by Rentwise")
     return Response(b, media_type="application/pdf")
@@ -849,6 +972,7 @@ async def sample_people(user=Depends(get_user)):
 
 app.include_router(api)
 app.include_router(money_router)
+app.include_router(plaid_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -891,6 +1015,8 @@ async def startup():
     await db.messages.create_index([("thread_id", 1), ("created_at", 1)])
     await db.tickets.create_index("id", unique=True)
     await db.used_receipts.create_index("hash", unique=True)
+    await db.plaid_links.create_index("link_token", unique=True)
+    await db.plaid_items.create_index("item_id", unique=True)
     await db.threads.update_many({"busy": True}, {"$set": {"busy": False}})
     await seed_static()
     try:

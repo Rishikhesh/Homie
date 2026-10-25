@@ -18,7 +18,7 @@ export default function ThreadScreen() {
   return (
     <View testID="thread-screen" style={{ flex: 1, backgroundColor: colors.surface, paddingTop: ins.top }}>
       <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingBottom: spacing.sm, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
-        <TextButton testID="thread-back-button" icon="chevron-back" label="Back" onPress={() => router.back()} />
+        <TextButton testID="thread-back-button" icon="chevron-back" label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} />
         <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Ionicons name="sparkles" size={16} color={colors.brandPrimary} />
           <Txt v="label" numberOfLines={1} style={{ flex: 1 }}>{data?.title || "Rentwise"}</Txt>

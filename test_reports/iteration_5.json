@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 5 tested the single-slot handyman accept, the missed jobs list and the iteration_4 Plaid fixes, on both the backend and the UI. Backend: 16/16 new tests pass. Frontend: every requested flow works, with one bug. After a handyman declines, the ticket detail screen keeps showing the stale 'New offer' card with the Accept and Decline buttons. Tapping Accept then shows a 'Ticket not found' error toast. No deprecated Expo packages were seen in the files reviewed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/plaid/sandbox/deposit", "issue": "The 'Link a bank with Plaid first' 400 check runs before amount validation. A landlord with no Plaid link who sends a bad amount gets 400, not 422. float('inf') also passes validation. Low impact."},
+      {"endpoint": "plaid_bank.looks_like_rent", "issue": "The name check needs the tenant's full name (e.g. 'Tom Chen') in the description. A deposit memo with only a first name or 'T CHEN' and a non-rent amount goes to history, not Needs review."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "TicketDetail after decline (app/ticket/[id].tsx:154)", "issue": "act('decline') shows a toast and reloads. The handyman now gets 404 on GET /tickets/{id}, and useLive keeps the old data when a fetch fails. So the screen keeps showing 'New offer' with Accept/Decline indefinitely (checked after 8s). Tapping Accept again gives a 'Ticket not found' error toast. Fix: router.back() or router.replace('/(handyman)') after a successful decline, or show an empty state when error && data.", "testID": "ticket-accept-button", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "AcceptSheet web DateTimeField (src/inputs.tsx:98,137)", "issues": ["The value is pre-filled (tomorrow 10 am) but no day chip shows as selected, because the local 'day' state starts as null. The hour chip row stays hidden until a day is tapped. Start 'day' from the value's index in nextDays() so the pre-filled choice is visible."]},
+      {"screen": "Handyman Jobs > Missed card", "issues": ["The text 'Reply within 2 hours next time' does not match the 120s demo expiry. OK if production uses 2h."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_single_slot_and_missed.py", "/app/backend/tests/make_offer.py", "/app/test_reports/pytest/iter5_results.xml"],
+  "action_items": [
+    "After a successful decline in app/ticket/[id].tsx, navigate back to Jobs (router.back()), or treat a 404 reload as 'no longer yours', so the stale Accept/Decline buttons go away.",
+    "Optional: in the web DateTimeField, show the pre-filled value as the selected day/hour chip.",
+    "Optional: in /plaid/sandbox/deposit, validate the amount before the Plaid-link check, and reject non-finite values."
+  ],
+  "critical_code_review_comments": [
+    "flows.handyman_accept still accepts up to 3 slots (slots[:3]). That's fine, but the UI now sends 1. The tenant message 'can come X or Y' reads correctly with a single slot.",
+    "hm_jobs runs a properties.find_one for each missed ticket inside the comprehension (N+1). It's capped at 20, so this is OK for now."
+  ],
+  "updated_files": ["/app/backend/tests/test_single_slot_and_missed.py (new)", "/app/backend/tests/make_offer.py (new helper)"],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "95% (all requested flows pass; one stale-state bug after decline)"},
+  "seed_data_creation": "Test-created repair tickets (faucet, sink drain, toilet, kitchen drain) were all cancelled afterwards. One 'TEST Coffee refund' Plaid sandbox deposit was created; it is in history. No /api/sample/reset was called.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run the pytest files with -n 0: they share Tom's single tenant thread, and xdist runs in parallel by default, which causes 409 'Rentwise is still replying'. Hank's trades are plumbing and general, so electrical issues aren't offered to him. Use make_offer.py \"<text>\" to get a fresh offer id. The browser and server clocks are in Oct 2026 (PDT). The web picker's wall-clock time was checked: Tue 2 pm was stored as 21:00Z with the label 'Tue 2 pm'. Expiry was checked: after about 135s, missed reason='expired' and the job was re-offered to Sam Patel.",
+  "rca_of_issue": "Stale ticket after decline: useLive's catch only calls setError and keeps the old data. TicketDetail renders ErrorState only when error && !t. After a decline, my_ticket returns 404 for the handyman, so the last snapshot (status 'offered') stays on screen."
+}

@@ -43,3 +43,6 @@ Build the mobile app described in rentwise-fresh-plan.md: an AI agent ("Rentwise
 - P2: Stripe payments (B1), Plaid bank feed (B2), real e-sign (B3)
 - P2: rolling thread summaries and automatic fact extraction after conversations
 - P2: split `server.py` into routers
+
+## Upload existing signed lease (2026-06)
+- Property detail → "Upload signed lease" (`/lease/upload?unit=`): pick PDF → `/api/upload` → `POST /api/leases/extract` (pypdf text + Opus JSON terms, chunks) → landlord reviews/edits → `POST /api/leases/upload` saves status `signed`, `source: upload`, `file_id`; voids older leases, updates unit rent/due day, marks onboarding lease step, posts lease card to tenant; `search_lease` uses its chunks; `/leases/{id}/pdf` returns the original. Scanned (no-text) PDFs get a clear error.

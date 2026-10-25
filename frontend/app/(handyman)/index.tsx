@@ -1,10 +1,11 @@
 import React from "react";
 import { RefreshControl } from "react-native";
-import { api } from "@/src/api";
+import { api, ago } from "@/src/api";
+import { View } from "react-native";
 import { useLive } from "@/src/useLive";
 import { useAuth } from "@/src/auth";
 import { TicketRow } from "@/src/cards";
-import { BigButton, Card, EmptyState, ErrorState, LargeHeader, Screen, Section, Skeleton, Txt, useToast } from "@/src/ui";
+import { BigButton, Card, EmptyState, ErrorState, LargeHeader, Screen, Section, Skeleton, StatusPill, Txt, useToast } from "@/src/ui";
 import { spacing } from "@/src/theme";
 
 export default function Jobs() {
@@ -32,6 +33,16 @@ export default function Jobs() {
           </Section>
           <Section title="Done / paid" testID="done-section">
             {data.done.length ? data.done.map((t: any, i: number) => <TicketRow key={t.id} t={t} role="handyman" index={i} />) : <Txt v="small">Finished jobs show here.</Txt>}
+          </Section>
+          <Section title={`Missed (${data.missed?.length || 0})`} testID="missed-section">
+            {data.missed?.length ? data.missed.map((m: any, i: number) => (
+              <Card key={m.id} index={i} testID={`missed-job-${m.id}`}>
+                <Txt v="label">{m.title}</Txt>
+                <Txt v="small">{m.city} · {m.trade}</Txt>
+                <View style={{ marginTop: spacing.sm }}><StatusPill label={m.reason === "expired" ? `Offer expired · ${ago(m.at)}` : `You declined · ${ago(m.at)}`} tone={m.reason === "expired" ? "warning" : "neutral"} /></View>
+                {m.reason === "expired" ? <Txt v="small" style={{ marginTop: 4 }}>Reply sooner next time to keep the job.</Txt> : null}
+              </Card>
+            )) : <Txt v="small">Offers you declined or didn&apos;t answer in time show here.</Txt>}
           </Section>
         </>
       ) : null}

@@ -144,7 +144,7 @@ async def handyman_decline(ticket, hid, reason="expired"):
     if ticket.get("handyman_id") != hid:
         raise HTTPException(403, "This job isn't offered to you")
     h = await handyman_doc(hid)
-    await db.tickets.update_one({"id": ticket["id"]}, {"$addToSet": {"declined_by": hid}})
+    await db.tickets.update_one({"id": ticket["id"]}, {"$addToSet": {"declined_by": hid}, "$push": {"missed": {"hid": hid, "reason": reason, "at": iso()}}})
     word = "didn't reply in time" if reason == "expired" else "declined"
     await timeline(ticket["id"], f"{h['name']} {word}")
     await activity(ticket["landlord_id"], f"{first(h['name'])} {word} — finding the next handyman", ticket["id"])

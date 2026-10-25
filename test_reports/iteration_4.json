@@ -1,0 +1,44 @@
+{
+  "summary": "Tested 3 changes end-to-end (backend pytest + Playwright at 390x844). (1) Triage fix: landlord 'Who's late?', 'What did I spend on repairs?' and 'Prefer Hank for plumbing' all get real answers. Off-topic 'pasta recipe' is still refused. Tenant prompts are also answered. Tapping the UI chip quick-reply-0 gave a real answer. (2) Report insights: POST /reports/{pid}/check returns headline, 4 insights, net, margin and note in about 6-15s, with valid tone/action/action_meta. In the UI: CTA -> Get insights -> headline + insight-0..3. invite_tenant goes to /property/{pid}. The add_expense sheet saved the expense, refreshed the report (Net $17,000 -> $15,766) and re-ran insights. (3) Plaid Sandbox: status shows configured with First Platypus Bank. link/start returns a hosted_link_url and link_token. link/status returns 'created'. Unknown token returns 404. Sandbox deposit -> sync imports it within one ~8s cycle. 'Maria Lopez rent' goes to review because Maria has already paid. Re-sync and 3 parallel syncs made no duplicates (unique index on bank_txns.id). Tenant gets 403. UI: the bank section shows 'Connected (First Platypus Bank (Plaid)) · synced ...', the sync and test-deposit buttons work, the plaid-sim-sheet deposit then Sync now shows the deposit in Needs review, and feed rows show 'Imported from bank · Plaid' / 'Matched to rent · Plaid'. Only failure: POST /plaid/sandbox/deposit with no amount returns 500 (KeyError).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/plaid/sandbox/deposit", "issue": "body: dict has no validation. If 'amount' is missing you get a KeyError and a 500. A non-numeric amount also gives a 500. Use a Pydantic model (sender_name: str, amount: float > 0) so it returns 422."},
+      {"endpoint": "POST /api/plaid/sync (sync_item)", "issue": "After the first sync, every deposit that doesn't match goes to 'Needs review'. With Sandbox user_transactions_dynamic, each sync adds several 'Monthly payment ~$500' / 'Transfer From Checking' deposits. Needs review grew from about 11 to 21 items during testing. A real landlord bank also gets paychecks and transfers, so the list will fill with non-rent items. Suggestion: only put a deposit in review if it looks like rent (a tenant name is in the description, or the amount is close to a unit's rent/remaining). Otherwise mark it 'history'/'other'."},
+      {"endpoint": "POST /api/plaid/webhook", "issue": "The webhook is unauthenticated: there is no Plaid-Verification JWT check. That's OK for Sandbox, but add verification before going to production."},
+      {"endpoint": "sync_item", "issue": "Plaid txn dates are stored as {date}T12:00:00+00:00, which can be in the future. The UI ago() then shows 'just now' for every review row. Also, if auto_match raises HTTPException(409) in the middle of a sync, the sync stops before the cursor is saved (rare)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Bank feed section header", "issue": "The StatusPill always says 'Simulated', even when a real Plaid bank is connected. Reference: app/(landlord)/money.tsx:74. Show 'Plaid Sandbox' when plaid.data.items.length is non-zero.", "testID": "bank-section", "priority": "medium"},
+      {"component": "Sync now toast", "issue": "run() shows toast(`${r.imported} new deposit(s) imported`) and then immediately toast('Bank synced'), so the user only sees 'Bank synced' and never the imported count. Reference: app/(landlord)/money.tsx:82", "testID": "plaid-sync-button", "priority": "low"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Money tab - Needs review", "issues": ["The review list is unbounded (no slice or 'show more'). With Plaid it grows to 20+ rows and pushes Expenses far down.", "Each review row repeats the description twice ('Monthly payment · $543' / 'Monthly payment · just now') because memo == sender_name for Plaid. Hide the memo when it equals sender_name."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_plaid_bank.py", "/app/backend/tests/test_agent_scope_and_insights.py", "/app/test_reports/pytest/plaid.xml", "/app/test_reports/pytest/agent.xml"],
+  "action_items": [
+    "Add a Pydantic model to POST /api/plaid/sandbox/deposit so a missing or invalid amount returns 422, not 500.",
+    "Stop flooding 'Needs review' with unrelated Plaid deposits (only route rent-like deposits to review; mark the rest history/other). Add a cap or 'show more' to the review list.",
+    "money.tsx:74: change the 'Simulated' pill to show Plaid when connected via Plaid.",
+    "money.tsx:82: keep the imported-count toast (don't overwrite it with 'Bank synced').",
+    "Optional: verify Plaid webhook signatures before production. Hide the duplicated memo on review rows."
+  ],
+  "critical_code_review_comments": [
+    "plaid_bank.py: the idempotency is solid (find_one check + unique index on bank_txns.id + claim via plaid_links.processed $addToSet).",
+    "plaid_bank.py link_status has no need(user,'landlord'), but the query is scoped by landlord_id so it's safe (returns 404).",
+    "agent.py triage is now seat-aware and fails open (in_scope true on parse errors). Off-topic refusal still works.",
+    "money.py report_check: uses the LLM with a rule-based fallback, action_meta is mapped from the rule candidates, and insights are capped at 4. Good."
+  ],
+  "updated_files": ["/app/backend/tests/test_plaid_bank.py (new)"],
+  "success_rate": {"backend": "94% (16/17: plaid 8/9, agent+insights 8/8)", "frontend": "100% of requested flows (chat quick reply, report insights + actions + expense sheet, Plaid bank section/sync/test deposit)"},
+  "seed_data_creation": "Added Plaid Sandbox deposits 'Maria Lopez rent' ($100-150) and 'Maria Lopez rent UI' ($77), both now in review. Created a Mortgage interest $1,234 expense through the UI test, then deleted it from Mongo.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Login on web: localStorage rw_session_token=test-landlord-token. Both tenants are paid for 2026-10 (Tom was matched via a Plaid 'Tom Chen rent' deposit), so 'Who's late?' now correctly says no one is late. The test asserts that 'Tom' is mentioned. Run pytest with -n 0 for the agent tests (pytest.ini enables xdist). GET /money/bank returns {connected, bank_name, review[], feed[], tenants}. No DELETE expense endpoint exists.",
+  "rca_of_issue": "500 on sandbox/deposit: plaid_bank.py:164 reads body['amount'] from an untyped dict, which raises KeyError (seen in backend.err.log). The review flood comes from sync_item: after the first sync, unmatched deposits are left in 'review' by auto_match, and only the initial sync moves them to 'history'."
+}

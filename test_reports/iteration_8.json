@@ -1,0 +1,41 @@
+{
+  "summary": "Tested the Upload signed lease PDF feature end to end. Backend: 17/17 pytest pass (upload, Opus extract in about 3s with correct terms and chunks, save as signed from upload, 409 on duplicate, 400 on missing or non-numeric terms, 403 for non-landlord, 404/415/422 edge cases, original PDF returned byte-identical to landlord and tenant, 404 for other tenant, tenant onboarding lease_signed true, lease card in tenant thread, tenant agent answered 'Can I have a cat?' from the uploaded clause). Frontend at 390x844: on an invited Room C, the property detail shows upload-lease-<unitId>. The flow pick PDF (file chooser) -> reading -> review (prefilled fields plus a missing-fields warning) -> edit -> save redirects to /lease/<id>, which shows 'Signed lease (uploaded)' and 'Original PDF'. The Original PDF link opens /api/leases/<id>/pdf?token=… (200, application/pdf). The tenant sees the uploaded lease, onboarding is Done, and no sign field shows. Regression: settings-screen loads and the Prepare lease 3-step flow sends a lease. No deprecated Expo packages found in the files reviewed. Sample data was reset afterwards (sample/reset plus backend restart), so the sample IDs changed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/leases/upload", "issue": "Sets units.rent to the lease rent right away. Past rent periods are computed from unit.rent, so history changes after an upload. In testing, Tom's April 2026 period (paid 1200 of 1200) became 1450 due and 'overdue $250' after a lease starting 2026-02-01 was uploaded. The rent change should apply only from the lease start or the next unbilled period. Reference: server.py:856"},
+      {"endpoint": "POST /api/leases/upload", "issue": "If notice_days or late_fee are missing, they silently default to 30 and 0 even when the AI flagged them as missing. The lease view then shows '30 days notice', which the PDF never said. Consider storing null and showing 'Not in lease'. Reference: server.py:836"},
+      {"endpoint": "POST /api/leases/upload", "issue": "Client-supplied chunks are stored as-is with no validation (should be a list of strings with a length cap). due_day is not range-checked (1-28), and rent and deposit can be zero or negative. Reference: server.py:835-844"},
+      {"endpoint": "POST /api/leases/upload", "issue": "The duplicate check (find_one, then insert) is not atomic, so two quick saves of the same file could both succeed. A unique partial index on file_id, or find_one_and_update, would close this. Reference: server.py:840"},
+      {"endpoint": "POST /api/leases (prepare)", "issue": "create_lease does not block when the unit already has a signed (uploaded) lease. Through the direct route /lease/new?unit=… it created a second 'sent' lease next to the signed upload, and the property detail then showed 'Lease sent' again. The UI hides the button, but the backend should return 409 or confirm."},
+      {"endpoint": "POST /api/leases/upload", "issue": "UX/business: a lease signed on paper usually means the deposit was paid off-platform, but deposit_due() will still ask the tenant for the full deposit. Consider a 'deposit already paid' toggle on the review screen."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "lease/upload (review)", "issues": ["The missing-fields warning ('I couldn't find: …') is yellow text (colors.warning) on a near-white background, so contrast is low. Use a darker amber or put the text on a tinted card.", "The reading card says 'This takes about 20 seconds', but extraction took about 3s in tests (minor copy)."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_lease_upload.py", "/app/test_reports/pytest/lease_upload.xml"],
+  "action_items": [
+    "Do not change past rent periods when an uploaded lease changes the rent: apply units.rent from the lease start or the next period (server.py:856).",
+    "Keep missing late_fee and notice_days as null instead of defaulting to 0 and 30, and show 'Not in lease' in lease/[id].tsx.",
+    "Validate chunks (a list of strings with a cap), due_day (1-28) and rent/deposit (> 0) in /leases/upload.",
+    "Optional: block or confirm POST /leases when the unit already has a signed lease. Optional: a 'deposit already paid' option for uploaded leases.",
+    "Improve contrast of the warning text on the upload review screen."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1029 lines, over the 700-line guideline. Consider moving the leases section into its own router module.",
+    "The PDF auth token is passed in the URL query (?token=) to open the PDF on web/native. This is an existing pattern, but the token can leak into history and logs. A short-lived signed URL would be safer.",
+    "extract_lease and save_uploaded_lease both re-read and re-parse the PDF. Fine for now, but save could reuse the stored text."
+  ],
+  "updated_files": ["/app/backend/tests/test_lease_upload.py (new)"],
+  "success_rate": {"backend": "100% (17/17)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "Created TEST invite test_priya@rentwise.test on Room C, plus uploaded and prepared leases. Then ran POST /api/sample/reset and restarted the backend, so sample data is back to its original state with NEW unit and property IDs.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use test_lease_upload.py (it uploads a lease for Room A and voids Tom's original signed lease, and it also changes Room A rent to 1450). On web, the document picker works with page.expect_file_chooser plus set_files. The web date fallback uses chips lease-start-month-N and lease-end-month-N. Running pytest -n 0 -s prints the extract time and the agent reply. After the suite, run sample/reset and then restart the backend to restore data (a restart alone does not reseed modified sample units)."
+}

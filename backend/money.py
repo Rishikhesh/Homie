@@ -54,7 +54,7 @@ async def oldest_unpaid(unit):
 
 async def deposit_due(unit):
     lease = await db.leases.find_one({"unit_id": unit["id"], "tenant_id": unit.get("tenant_id"), "status": "signed"}, NF)
-    if not lease:
+    if not lease or lease["terms"].get("deposit_paid"):
         return None
     paid = await db.payments.find_one({"unit_id": unit["id"], "tenant_id": unit["tenant_id"], "kind": "deposit", "status": "recorded"})
     return None if paid else float(lease["terms"].get("deposit") or 0) or None
@@ -77,7 +77,11 @@ async def auto_match(txn):
     units = [u async for u in db.units.find({"landlord_id": txn["landlord_id"], "tenant_id": {"$ne": None}}, NF)]
     tids = [u["tenant_id"] for u in units]
     tenants = [t async for t in db.users.find({"id": {"$in": tids}}, NF)]
-    hits = [t for t in tenants if t["name"].strip().casefold() == (txn["sender_name"] or "").strip().casefold()]
+    sender = (txn["sender_name"] or "").strip().casefold()
+    hits = [t for t in tenants if t["name"].strip().casefold() == sender]
+    if not hits and txn.get("source") == "plaid":
+        # Bank descriptions add words ("TOM CHEN RENT ZELLE"): accept when exactly one tenant's full name appears.
+        hits = [t for t in tenants if t["name"].strip().casefold() in sender]
     if len(hits) == 1:
         unit = next(u for u in units if u["tenant_id"] == hits[0]["id"])
         row = await oldest_unpaid(unit)

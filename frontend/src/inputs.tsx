@@ -7,10 +7,10 @@ import { uploadForm } from "@/src/utils/upload";
 import { BigButton, Chip, ChipRow, Ionicons, Sheet, TextButton, Txt, useToast, FileImage } from "@/src/ui";
 import { radius, spacing, useTheme } from "@/src/theme";
 
-export async function uploadAsset(asset: ImagePicker.ImagePickerAsset): Promise<string> {
+export async function uploadAsset(asset: { uri: string; fileName?: string | null; name?: string; mimeType?: string | null }): Promise<string> {
   const headers: Record<string, string> = { Authorization: `Bearer ${session.token}` };
   if (session.actAs) headers["X-Act-As"] = session.actAs;
-  const res: any = await uploadForm(`${API}/upload`, { headers, files: { file: { uri: asset.uri, name: asset.fileName ?? "photo.jpg", mimeType: asset.mimeType ?? "image/jpeg" } } });
+  const res: any = await uploadForm(`${API}/upload`, { headers, files: { file: { uri: asset.uri, name: asset.name ?? asset.fileName ?? "photo.jpg", mimeType: asset.mimeType ?? "image/jpeg" } } });
   const data = typeof res?.json === "function" ? await res.json() : res;
   if (res?.ok === false || !data?.id) throw new ApiError(res?.status || 500, data?.detail || "Upload didn't go through. Tap to try again");
   return data.id;
@@ -95,7 +95,11 @@ export function fmtDate(d: Date) {
 /** Native picker on phones (Android: date then time dialogs; iOS: compact native picker). Web preview: day + hour chips. */
 export function DateTimeField({ value, onChange, mode = "datetime", testID, label }: { value: Date | null; onChange: (d: Date) => void; mode?: "datetime" | "date"; testID: string; label: string }) {
   const { colors } = useTheme();
-  const [day, setDay] = useState<number | null>(null);
+  const [day, setDay] = useState<number | null>(() => {
+    if (!value) return null;
+    const i = nextDays(7).findIndex((d) => d.toDateString() === value.toDateString());
+    return i >= 0 ? i : null;
+  });
   if (Platform.OS === "ios") {
     return (
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 50 }}>
@@ -134,7 +138,7 @@ export function DateTimeField({ value, onChange, mode = "datetime", testID, labe
   return (
     <View style={{ gap: 6 }}>
       <Txt v="label">{label}{value ? ` · ${fmtDate(value)}` : ""}</Txt>
-      <ChipRow>{days.map((d, i) => <Chip key={i} testID={`${testID}-day-${i}`} label={d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" })} selected={day === i} onPress={() => setDay(i)} />)}</ChipRow>
+      <ChipRow>{days.map((d, i) => <Chip key={i} testID={`${testID}-day-${i}`} label={d.toLocaleDateString("en-US", { weekday: "short" }) + " " + d.getDate()} selected={day === i} onPress={() => setDay(i)} />)}</ChipRow>
       {day != null ? (
         <ChipRow>{HOURS.map((h) => <Chip key={h} testID={`${testID}-hour-${h}`} label={`${h % 12 || 12} ${h < 12 ? "am" : "pm"}`} selected={!!value && value.getHours() === h && value.getDate() === days[day].getDate()} onPress={() => { const d = new Date(days[day]); d.setHours(h); onChange(d); }} />)}</ChipRow>
       ) : null}

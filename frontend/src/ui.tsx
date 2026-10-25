@@ -10,6 +10,7 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import { fonts, makeStyles, radius, spacing, useTheme, ThemeColors } from "@/src/theme";
 import { fileUrl, money } from "@/src/api";
 import { usesNativeTabs } from "@/src/navigation";
+import { useRouter } from "expo-router";
 
 type Tone = "success" | "warning" | "error" | "brand" | "neutral";
 
@@ -91,10 +92,13 @@ export function Screen({ children, scroll = true, padTop = true, tab = false, re
 export type HeaderAction = { label: string; icon?: any; onPress: () => void; testID: string };
 export function LargeHeader({ title, subtitle, actions = [], back }: { title: string; subtitle?: string; actions?: HeaderAction[]; back?: () => void }) {
   const { colors } = useTheme();
+  const router = useRouter();
+  // Screens opened by a direct link have no history: fall back to the role's home (the root gate routes it).
+  const goBack = () => (router.canGoBack() ? back?.() : router.replace("/"));
   return (
     <View style={{ marginBottom: spacing.xl }}>
       {back ? (
-        <Pressable testID="header-back-button" onPress={back} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", minHeight: 44, alignSelf: "flex-start" }}>
+        <Pressable testID="header-back-button" onPress={goBack} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", minHeight: 44, alignSelf: "flex-start" }}>
           <Ionicons name="chevron-back" size={22} color={colors.brandPrimary} />
           <Txt v="label" color={colors.brandPrimary}>Back</Txt>
         </Pressable>

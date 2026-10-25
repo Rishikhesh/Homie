@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { api, money, ago } from "@/src/api";
 import { useLive } from "@/src/useLive";
 import { BigButton, Card, Chip, ChipRow, ConfirmSheet, Divider, EmptyState, ErrorState, Field, LargeHeader, Row, Screen, Section, Sheet, Skeleton, StatusPill, TextButton, Txt, useToast } from "@/src/ui";
@@ -15,7 +16,24 @@ export default function Money() {
   const { colors } = useTheme();
   const ov = useLive<any>(() => api("/money/overview"), 3000);
   const bank = useLive<any>(() => api("/money/bank"), 3000);
-  const [sheet, setSheet] = useState<null | "connect" | "sim" | "expense" | "cash" | { assign: any }>(null);
+  const plaid = useLive<any>(() => api("/plaid/status"), 0);
+  const [linking, setLinking] = useState(false);
+  const [sheet, setSheet] = useState<null | "connect" | "sim" | "plaidsim" | "expense" | "cash" | { assign: any }>(null);
+  const connectPlaid = async () => {
+    setLinking(true);
+    try {
+      const r = await api("/plaid/link/start", { method: "POST" });
+      await WebBrowser.openBrowserAsync(r.hosted_link_url);
+      // Hosted Link has no callback: check the session until Plaid reports it finished.
+      for (let i = 0; i < 20; i++) {
+        const s = await api(`/plaid/link/status/${r.link_token}`);
+        if (s.status === "success") { toast("Bank connected — deposits imported"); setSheet(null); reload(); plaid.reload(); return; }
+        if (s.status === "exit") { toast("Bank connection cancelled", "error"); return; }
+        await new Promise((res) => setTimeout(res, 3000));
+      }
+      toast("Still waiting on Plaid — open Connect again to retry", "error");
+    } catch (e: any) { toast(e.message, "error"); } finally { setLinking(false); }
+  };
   const [f, setF] = useState<any>({});
   const [cash, setCash] = useState<any>(null);
   const reload = () => { ov.reload(); bank.reload(); };
@@ -53,13 +71,20 @@ export default function Money() {
             {!d.properties.length ? <EmptyState testID="money-empty" title="No rent yet" body="Add a property and invite tenants to start tracking rent." /> : null}
           </Section>
 
-          <Section title="Bank feed" testID="bank-section" right={<StatusPill label="Simulated" tone="neutral" />}>
+          <Section title="Bank feed" testID="bank-section" right={<StatusPill label={plaid.data?.items?.length ? "Plaid Sandbox" : "Simulated"} tone={plaid.data?.items?.length ? "brand" : "neutral"} />}>
             {!bank.data?.connected ? (
               <EmptyState testID="bank-connect-empty" icon="card-outline" title="Connect your bank" body="Rentwise matches rent deposits to tenants automatically." action="Connect bank" onAction={() => setSheet("connect")} />
             ) : (
               <>
-                <Txt v="small">Connected ({bank.data.bank_name})</Txt>
-                {d.demo ? <BigButton testID="simulate-deposit-button" tone="soft" icon="flash-outline" label="Simulate incoming deposit" onPress={() => setSheet("sim")} /> : null}
+                <Txt v="small">Connected ({bank.data.bank_name}){plaid.data?.items?.[0]?.last_sync ? ` · synced ${ago(plaid.data.items[0].last_sync)}` : ""}</Txt>
+                {plaid.data?.items?.length ? (
+                  <Row>
+                    <BigButton style={{ flex: 1 }} testID="plaid-sync-button" tone="soft" icon="sync-outline" label="Sync now" onPress={async () => { try { const r = await api("/plaid/sync", { method: "POST" }); toast(r.imported ? `${r.imported} new deposit(s) imported` : "Bank synced — nothing new"); reload(); } catch (e: any) { toast(e.message, "error"); } }} />
+                    <BigButton style={{ flex: 1 }} testID="plaid-sandbox-deposit-button" tone="soft" icon="add-circle-outline" label="Test deposit" onPress={() => setSheet("plaidsim")} />
+                  </Row>
+                ) : null}
+                {d.demo && !plaid.data?.items?.length ? <BigButton testID="simulate-deposit-button" tone="soft" icon="flash-outline" label="Simulate incoming deposit" onPress={() => setSheet("sim")} /> : null}
+                {!plaid.data?.items?.length && plaid.data?.configured ? <TextButton testID="plaid-upgrade-button" icon="lock-closed-outline" label="Connect a bank with Plaid" onPress={() => setSheet("connect")} /> : null}
               </>
             )}
             {bank.data?.review?.length ? (
@@ -80,7 +105,7 @@ export default function Money() {
                 {bank.data.feed.slice(0, 12).map((t: any, i: number) => (
                   <View key={t.id}>{i ? <Divider /> : null}
                     <Row style={{ justifyContent: "space-between" }}>
-                      <View style={{ flex: 1 }}><Txt v="body">{t.sender_name}</Txt><Txt v="small">{t.date.slice(0, 10)} · {t.status === "matched" ? "Matched to rent" : "Not rent"}</Txt></View>
+                      <View style={{ flex: 1 }}><Txt v="body">{t.sender_name}</Txt><Txt v="small">{t.date.slice(0, 10)} · {t.status === "matched" ? "Matched to rent" : t.status === "history" ? "Imported from bank" : "Not rent"}{t.source === "plaid" ? " · Plaid" : ""}</Txt></View>
                       <Txt v="label">{money(t.amount)}</Txt>
                     </Row>
                   </View>
@@ -107,8 +132,21 @@ export default function Money() {
       )}
 
       <Sheet visible={sheet === "connect"} onClose={() => setSheet(null)} title="Pick your bank" testID="bank-connect-sheet">
-        <Txt v="small" style={{ marginBottom: spacing.md }}>Demo only — no real bank connection.</Txt>
+        {plaid.data?.configured ? (
+          <View style={{ gap: spacing.sm, marginBottom: spacing.lg }}>
+            <BigButton testID="plaid-connect-button" icon="lock-closed-outline" label="Connect with Plaid (Sandbox)" loading={linking} onPress={connectPlaid} />
+            <Txt v="small">Sandbox login: user_transactions_dynamic / any password (lets you add test deposits). Fake money only.</Txt>
+          </View>
+        ) : <Txt v="small" style={{ marginBottom: spacing.md }}>Plaid keys aren&apos;t added yet — use a demo bank for now.</Txt>}
+        <Txt v="small" style={{ marginBottom: spacing.md }}>Or a demo bank — no real bank connection.</Txt>
         {["Demo Bank", "Chase (demo)", "Wells Fargo (demo)"].map((b, i) => <BigButton key={b} testID={`bank-option-${i}`} tone="soft" label={b} style={{ marginBottom: spacing.sm }} onPress={() => run(() => api("/money/bank/connect", { body: { bank: b } }), "Bank connected (simulated)")} />)}
+      </Sheet>
+      <Sheet visible={sheet === "plaidsim"} onClose={() => setSheet(null)} title="Plaid Sandbox deposit" testID="plaid-sim-sheet">
+        <View style={{ gap: spacing.md }}>
+          <Field testID="plaid-sim-sender-input" label="Description" value={f.sender || ""} onChangeText={(v) => setF({ ...f, sender: v })} hint="Include the tenant's full name, e.g. Tom Chen rent" />
+          <Field testID="plaid-sim-amount-input" label="Amount ($)" keyboardType="decimal-pad" value={f.amount || ""} onChangeText={(v) => setF({ ...f, amount: v })} />
+          <BigButton testID="plaid-sim-submit" label="Send to Plaid" onPress={() => run(() => api("/plaid/sandbox/deposit", { body: { sender_name: f.sender, amount: Number(f.amount) } }), "Sent — tap Sync now in a few seconds")} />
+        </View>
       </Sheet>
       <Sheet visible={sheet === "sim"} onClose={() => setSheet(null)} title="Simulate a deposit" testID="simulate-sheet">
         <View style={{ gap: spacing.md }}>
